@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 export async function proxy(request: NextRequest) {
+  if (
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname === "/brand/sincere-logo.jpeg"
+  )
+    return NextResponse.next();
   let response = NextResponse.next({ request });
   const db = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

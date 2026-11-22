@@ -14,7 +14,7 @@ import {
   Settings,
 } from "lucide-react";
 export const navigation = [
-  { path: "/", name: "Dashboard", icon: LayoutDashboard, group: "Academy" },
+  { path: "/dashboard", name: "Dashboard", icon: LayoutDashboard, group: "Academy" },
   { path: "/students", name: "Students", icon: Users },
   {
     path: "/take-attendance",

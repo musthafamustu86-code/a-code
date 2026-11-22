@@ -2,18 +2,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import {
-  ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
-  Star,
-  Users,
-  CalendarCheck,
-  Pause,
-  Play,
-  Trophy,
-} from "lucide-react";
-import { queryString, useData } from "@/lib/client";
+import { ArrowUpRight, Star, Users, CalendarCheck, Trophy } from "lucide-react";
+import { useData } from "@/lib/client";
 import type { Ranking } from "@/lib/types";
 import type { WorkspaceData } from "./workspace";
 import { AnimatedNumber, ErrorNotice } from "./ui";
@@ -25,32 +15,11 @@ export function Dashboard({
   data: WorkspaceData;
   refresh: () => Promise<void>;
 }) {
-  const overview = data.overview!,
-    leagues = data.leagues.filter((l) => l.active);
-  const [seed] = useState(() => Math.random()),
-    [step, setStep] = useState(0),
-    [paused, setPaused] = useState(false);
-  const manualUntil = useRef(0),
-    touch = useRef(0),
-    previous = useRef(new Map<string, string[]>());
+  const overview = data.overview!;
+  const previous = useRef(new Map<string, string[]>());
   const reduced = useReducedMotion();
-  const league =
-    leagues[
-      (Math.floor(seed * leagues.length) +
-        (step % leagues.length) +
-        leagues.length) %
-        leagues.length
-    ];
   const ranks = useData<Ranking[]>(
-    league && overview.active_year
-      ? queryString({
-          rpc: "rankings",
-          year: overview.active_year,
-          league: league.id,
-          start: overview.week_start,
-          end: overview.today,
-        })
-      : null,
+    "rpc=individual_rankings&period=current-week",
     [],
   );
   const reload = ranks.reload;
@@ -63,34 +32,19 @@ export function Dashboard({
     }, 12000);
     return () => clearInterval(timer);
   }, [refresh, reload]);
-  useEffect(() => {
-    if (paused || leagues.length < 2) return;
-    const timer = setInterval(() => {
-      if (
-        Date.now() >= manualUntil.current &&
-        document.visibilityState === "visible"
-      )
-        setStep((s) => s + 1);
-    }, 10000);
-    return () => clearInterval(timer);
-  }, [paused, leagues.length]);
   const leaders = ranks.data.filter((r) => r.rank === 1).map((r) => r.id);
   const [glow, setGlow] = useState<string[]>([]);
   const signature = leaders.join(",");
   useEffect(() => {
-    if (!league || ranks.loading || ranks.error) return;
+    if (ranks.loading || ranks.error) return;
     const current = signature ? signature.split(",") : [],
-      old = previous.current.get(league.id);
+      old = previous.current.get(overview.week_start);
     const frame = requestAnimationFrame(() =>
       setGlow(old ? current.filter((id) => !old.includes(id)) : []),
     );
-    previous.current.set(league.id, current);
+    previous.current.set(overview.week_start, current);
     return () => cancelAnimationFrame(frame);
-  }, [league, ranks.loading, ranks.error, signature]);
-  function turn(by: number) {
-    manualUntil.current = Date.now() + 12000;
-    setStep((s) => s + by);
-  }
+  }, [overview.week_start, ranks.loading, ranks.error, signature]);
   return (
     <>
       <div className="dayline">
@@ -138,18 +92,11 @@ export function Dashboard({
         ))}
       </div>
       <div className="boardgrid">
-        <section
-          className="standings"
-          onTouchStart={(e) => (touch.current = e.touches[0].clientX)}
-          onTouchEnd={(e) => {
-            const dx = e.changedTouches[0].clientX - touch.current;
-            if (Math.abs(dx) > 45) turn(dx < 0 ? 1 : -1);
-          }}
-        >
+        <section className="standings">
           <div className="leaguehead">
             <Trophy />
-            <small>WEEKLY LEAGUE STANDINGS</small>
-            <h2>{league?.name || "League standings"}</h2>
+            <small>CURRENT WEEK</small>
+            <h2>Individual leaderboard</h2>
             <Link href="/leaderboard">Full leaderboard ↗</Link>
           </div>
           <ErrorNotice message={ranks.error} />
@@ -174,26 +121,10 @@ export function Dashboard({
               <p>
                 {ranks.loading
                   ? "Loading standings…"
-                  : "No students ranked in this league."}
+                  : "No students ranked this week."}
               </p>
             )}
           </div>
-          {leagues.length > 1 && (
-            <div className="controls">
-              <button onClick={() => turn(-1)} aria-label="Previous league">
-                <ChevronLeft />
-              </button>
-              <button
-                onClick={() => setPaused(!paused)}
-                aria-label={paused ? "Resume rotation" : "Pause rotation"}
-              >
-                {paused ? <Play /> : <Pause />}
-              </button>
-              <button onClick={() => turn(1)} aria-label="Next league">
-                <ChevronRight />
-              </button>
-            </div>
-          )}
         </section>
         <section className="recent">
           <small className="kicker">RECOGNITION</small>

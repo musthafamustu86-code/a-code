@@ -1,5 +1,6 @@
 import localFont from "next/font/local";
 import "./globals.css";
+import "./entry.css";
 const sans = localFont({ src: "./fonts/manrope.ttf", variable: "--sans" });
 const serif = localFont({ src: "./fonts/newsreader.ttf", variable: "--serif" });
 export const metadata = {

@@ -73,7 +73,7 @@ export function Workspace({ section }: { section: string }) {
   const active = destinations.find((d) => d.path === section)!;
   let body;
   switch (section) {
-    case "/":
+    case "/dashboard":
       body = <Dashboard data={data} refresh={overview.reload} />;
       break;
     case "/students":
@@ -195,7 +195,7 @@ export function Workspace({ section }: { section: string }) {
             transition={{ duration: 0.18 }}
           >
             <small className="kicker">{active.section}</small>
-            <h1>{section === "/" ? "Academy overview" : active.name}</h1>
+            <h1>{section === "/dashboard" ? "Academy overview" : active.name}</h1>
             <ErrorNotice message={failed} />
             {data.overview
               ? body

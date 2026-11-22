@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 const base = process.env.TEST_BASE_URL || "http://localhost:3000";
 for (const page of [
-  "/",
+  "/dashboard",
   "/students",
   "/take-attendance",
   "/attendance-records",
@@ -19,6 +19,13 @@ for (const page of [
   assert.equal(res.status, 307, page);
   assert.equal(new URL(res.headers.get("location"), base).pathname, "/login");
 }
+const launch = await fetch(base + "/", { redirect: "manual" });
+assert.equal(launch.status, 200);
+assert.match(await launch.text(), /sincere-logo.jpeg/);
+assert.equal(
+  (await fetch(base + "/brand/sincere-logo.jpeg")).headers.get("content-type"),
+  "image/jpeg",
+);
 const login = await fetch(base + "/login");
 assert.equal(login.status, 200);
 assert.match(await login.text(), /Staff sign in/);

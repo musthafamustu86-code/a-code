@@ -23,27 +23,11 @@ import {
 } from "./ui";
 export function Leaderboard({ data }: { data: WorkspaceData }) {
   const calendar = useAcademicCalendar(data.years, data.overview, true);
-  const [chosenLeague, setLeague] = useState("");
   const [search, setSearch] = useState("");
   const [reverse, setReverse] = useState(false);
-  const league = chosenLeague || data.leagues[0]?.id;
   return (
     <>
       <AcademicCalendarPicker calendar={calendar} />
-      <div className="toolbar">
-        <div className="tabs" role="group" aria-label="Leaderboard league">
-          {data.leagues.map((item) => (
-            <button
-              key={item.id}
-              className={item.id === league ? "active" : ""}
-              aria-pressed={item.id === league}
-              onClick={() => setLeague(item.id)}
-            >
-              {item.name}
-            </button>
-          ))}
-        </div>
-      </div>
       <div className="toolbar">
         <SearchBox value={search} onChange={setSearch} />
         <select
@@ -55,27 +39,17 @@ export function Leaderboard({ data }: { data: WorkspaceData }) {
           <option value="asc">Lowest stars first</option>
         </select>
       </div>
-      <LeagueRankings
-        calendar={calendar}
-        league={league}
-        search={search}
-        reverse={reverse}
-        name={data.leagues.find((item) => item.id === league)?.name}
-      />
+      <StudentRankings calendar={calendar} search={search} reverse={reverse} />
     </>
   );
 }
 
-function LeagueRankings({
+function StudentRankings({
   calendar,
-  league,
-  name,
   search,
   reverse,
 }: {
   calendar: ReturnType<typeof useAcademicCalendar>;
-  league?: string;
-  name?: string;
   search: string;
   reverse: boolean;
 }) {
@@ -83,24 +57,18 @@ function LeagueRankings({
   const [flash, setFlash] = useState("");
   const leader = useRef("");
   const reduced = useReducedMotion();
-  const filterKey = JSON.stringify([
-    league,
-    calendar.filterKey,
-    search,
-    reverse,
-  ]);
+  const filterKey = JSON.stringify([calendar.filterKey, search, reverse]);
   const page = pager.key === filterKey ? pager.page : 0;
   const setPage = (next: number) => setPager({ key: filterKey, page: next });
   const allTime = calendar.kind === "all";
   const query =
-    league && (allTime || calendar.range)
+    allTime || calendar.range
       ? queryString({
-          rpc: "rankings",
+          rpc: "individual_rankings",
           year:
             allTime || calendar.kind === "custom"
               ? undefined
               : calendar.year?.id,
-          league,
           ...calendar.range,
           search,
           direction: reverse ? "asc" : "desc",
@@ -140,7 +108,7 @@ function LeagueRankings({
         <div className="panel-heading">
           <h2>
             <Trophy className="gold-text" size={21} />
-            {name || "League leaderboard"}
+            Individual leaderboard
           </h2>
           <Tag>Ties share a rank</Tag>
         </div>
@@ -202,7 +170,7 @@ function LeagueRankings({
               ? "Retrieving student totals."
               : search
                 ? "Try another student name or admission number."
-                : "Rankings appear for students enrolled in the selected league and academic year."}
+                : "Rankings appear for students enrolled in the selected period."}
           </Empty>
         )}
         <Pager page={page} onChange={setPage} count={rows.length} />

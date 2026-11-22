@@ -59,15 +59,16 @@ export async function GET(request: Request) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
-    if (params.get("rpc") === "rankings")
+    if (params.get("rpc") === "individual_rankings")
       return Response.json(
         await supabase(
-          "/rest/v1/rpc/rankings",
+          "/rest/v1/rpc/individual_rankings",
           {
             method: "POST",
             body: JSON.stringify({
               p_year: params.get("year"),
-              p_league: params.get("league"),
+              p_current_week: params.get("period") === "current-week",
+              p_limit: params.get("period") === "current-week" ? 5 : 100,
               p_start: params.get("start"),
               p_end: params.get("end"),
               p_search: params.get("search") || "",

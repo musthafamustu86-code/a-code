@@ -1,0 +1,87 @@
+.academy-launch {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  color: #fbfaf4;
+  background:
+    radial-gradient(ellipse at 10% 5%, #10332b 0, transparent 38%),
+    radial-gradient(ellipse at 91% 95%, #17261f 0, transparent 40%), #000;
+  padding: clamp(24px, 7vw, 80px);
+  text-align: center;
+}
+.launch-content {
+  width: min(100%, 540px);
+  display: grid;
+  justify-items: center;
+  gap: clamp(12px, 3vh, 26px);
+}
+.launch-logo {
+  display: block;
+  width: min(80%, 400px);
+  height: auto;
+  mix-blend-mode: screen;
+}
+.launch-content h1 {
+  font-family: var(--serif), Georgia, serif;
+  font-size: clamp(38px, 6vw, 72px);
+  font-weight: 450;
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+.launch-enter {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 22px;
+  border-radius: 8px;
+  background: #d4e9c6;
+  color: #143326;
+  font-weight: 700;
+}
+.launch-enter:hover {
+  background: #e6f4d8;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .launch-content,
+  .accessform form {
+    animation: arrival 0.55s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  }
+  .atlas .caption {
+    animation: arrival 0.62s 0.08s both;
+  }
+  .atlas .sky {
+    animation: orbit-arrival 1.6s cubic-bezier(0.18, 0.8, 0.26, 1) both;
+  }
+  .atlas .sky i b {
+    animation: star-light 2.2s ease-in-out 2 alternate;
+  }
+}
+@keyframes arrival {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes orbit-arrival {
+  from {
+    opacity: 0.1;
+    transform: rotate(-30deg) scale(0.93);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-18deg) scale(1);
+  }
+}
+@keyframes star-light {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+    box-shadow: 0 0 22px #e9d398;
+  }
+}

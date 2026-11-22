@@ -323,6 +323,56 @@ await cmd("stars.award", {
   reason: "Participation",
   request_id: uuid(),
 });
+// A separate league, an unassigned student, and an earlier award share one academy ledger.
+await db.exec("begin");
+const second = (await cmd("league.save", { name: "Fixture league B" })).id;
+const fourth = (
+  await cmd("student.save", {
+    full_name: "Fixture D",
+    admission_number: "TEST-D",
+    class_id: classes[0].id,
+    league_id: second,
+    academic_year_id: year,
+  })
+).id;
+const fifth = (
+  await cmd("student.save", {
+    full_name: "Fixture E",
+    admission_number: "TEST-E",
+    class_id: classes[0].id,
+    academic_year_id: year,
+  })
+).id;
+await cmd("stars.award", {
+  students: [fourth],
+  amount: 4,
+  reason: "Fixture",
+  request_id: uuid(),
+});
+await db.exec("reset role");
+await db.query(
+  "insert into public.star_transactions select (jsonb_populate_record(t,jsonb_build_object('id',gen_random_uuid(),'request_id',gen_random_uuid(),'earned_on',t.earned_on-8))).* from public.star_transactions t where student_id=$1 limit 1",
+  [fourth],
+);
+await db.exec("set role authenticated");
+const weekly = (
+  await db.query("select public.individual_rankings(p_current_week=>true) r")
+).rows[0].r;
+assert.deepEqual(
+  weekly.map((row) => +row.rank),
+  [1, 1, 3, 4, 5],
+);
+checks++;
+assert.equal(weekly.find((row) => row.id === fourth).stars, 4);
+checks++;
+assert.equal(weekly.find((row) => row.id === fifth).stars, 0);
+checks++;
+const all = (
+  await db.query("select public.individual_rankings(p_search=>'TEST-D') r")
+).rows[0].r;
+assert.equal(all[0].stars, 8);
+checks++;
+await db.exec("rollback");
 const ranks = (
   await db.query("select public.rankings($1,$2,null,null) as r", [year, league])
 ).rows[0].r;

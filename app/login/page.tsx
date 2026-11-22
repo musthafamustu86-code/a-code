@@ -56,7 +56,7 @@ export default function Login() {
                 body: JSON.stringify(body),
               });
               if (!r.ok) throw Error((await r.json()).error);
-              location.replace("/");
+              location.replace("/dashboard");
             } catch (err) {
               setError(
                 err instanceof Error ? err.message : "Unable to sign in.",
