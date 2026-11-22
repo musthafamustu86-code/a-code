@@ -294,8 +294,7 @@ function ImportStudents({
       >
         <div className="notice">
           Columns, in order: admission_number, full_name, class. A header row is
-          optional. Up to 500 students per atomic import. Duplicate admissions
-          reject the entire batch.
+          optional. Duplicate admissions roll back the full import.
         </div>
         <Field label="CSV file">
           <input
@@ -315,8 +314,6 @@ function ImportStudents({
                   header.join(",") === "admissionnumber,fullname,class"
                     ? parsed.slice(1)
                     : parsed;
-                if (body.length > 500)
-                  throw new Error("Split imports into batches of at most 500.");
                 setRows(body);
                 setError("");
               } catch (e) {

@@ -511,7 +511,7 @@ function ProgressionForm({
 export function SettingsPage({ data }: { data: WorkspaceData }) {
   const [message, setMessage] = useState("");
   const [newClass, setNewClass] = useState(false);
-  const [classDraft,setClassDraft]=useState<Named|null>(null);
+  const [classDraft, setClassDraft] = useState<Named | null>(null);
   const settings = data.overview?.settings;
   const [periodPage, setPeriodPage] = useState(0);
   const [editingPeriod, setEditingPeriod] = useState<Period | null>(null);
@@ -524,7 +524,6 @@ export function SettingsPage({ data }: { data: WorkspaceData }) {
   return (
     <>
       <div className="split-panel settings-layout">
-
         <Panel>
           <div className="panel-heading">
             <h2>Institution & academic calendar</h2>
@@ -618,7 +617,13 @@ export function SettingsPage({ data }: { data: WorkspaceData }) {
       <Panel className="mt-6">
         <div className="panel-heading">
           <h2>Classes</h2>
-          <Button variant="outline" onClick={() => {setClassDraft(null);setNewClass(true)}}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setClassDraft(null);
+              setNewClass(true);
+            }}
+          >
             <Plus />
             Add class
           </Button>
@@ -628,7 +633,17 @@ export function SettingsPage({ data }: { data: WorkspaceData }) {
             <span className="record-hint">No classes configured.</span>
           )}
           {data.classes.map((c) => (
-            <Button variant="outline" key={c.id} onClick={()=>{setClassDraft(c);setNewClass(true)}}>{c.name}{!c.active && " · inactive"}</Button>
+            <Button
+              variant="outline"
+              key={c.id}
+              onClick={() => {
+                setClassDraft(c);
+                setNewClass(true);
+              }}
+            >
+              {c.name}
+              {!c.active && " · inactive"}
+            </Button>
           ))}
         </div>
       </Panel>
@@ -688,29 +703,41 @@ export function SettingsPage({ data }: { data: WorkspaceData }) {
         />
       </Panel>
       {newClass ? (
-        <Modal title={classDraft?"Edit class":"Create class"} onClose={() => setNewClass(false)}>
+        <Modal
+          title={classDraft ? "Edit class" : "Create class"}
+          onClose={() => setNewClass(false)}
+        >
           <Form
             onSubmit={async (f) => {
               await command("class.save", {
-                id:classDraft?.id, name: f.get("name"),
+                id: classDraft?.id,
+                name: f.get("name"),
                 position: Number(f.get("position")),
-                active: f.get("active")==="on",
+                active: f.get("active") === "on",
               });
               setNewClass(false);
             }}
           >
             <Field label="Class name">
-              <input name="name" required defaultValue={classDraft?.name}/>
+              <input name="name" required defaultValue={classDraft?.name} />
             </Field>
             <Field label="Progression order">
               <input
                 name="position"
                 type="number"
                 required
-                defaultValue={classDraft?.position??(data.classes.length + 1)}
+                defaultValue={classDraft?.position ?? data.classes.length + 1}
               />
             </Field>
-          <label className="check-label"><input type="checkbox" name="active" defaultChecked={classDraft?.active??true}/> Active class</label></Form>
+            <label className="check-label">
+              <input
+                type="checkbox"
+                name="active"
+                defaultChecked={classDraft?.active ?? true}
+              />{" "}
+              Active class
+            </label>
+          </Form>
         </Modal>
       ) : null}
       {editingPeriod ? (

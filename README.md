@@ -47,7 +47,7 @@ npm.cmd run build
 npm.cmd run test:http
 ```
 
-The database suite runs against isolated PGlite with Supabase role and storage fixtures. It checks 60 business, authorization and Auth-hook cases. Hosted job scheduling requires real PostgreSQL with pg_cron. The HTTP suite checks all 13 protected page routes, four protected APIs, same-origin checks and sign-in validation. Test fixtures are fictional.
+The database suite runs against isolated PGlite with Supabase role and storage fixtures. It checks 62 business, authorization and Auth-hook cases. Hosted job scheduling requires real PostgreSQL with pg_cron. The HTTP suite checks all 13 protected page routes, four protected APIs, same-origin checks and sign-in validation. Test fixtures are fictional.
 
 ## Operational details
 

@@ -359,7 +359,7 @@ function SessionDetails({
       created_at: string;
       staff_id: string;
     }[]
-  >(`table=remark_history&session_id=${session.id}`, []);
+  >(`all:table=remark_history&session_id=${session.id}`, []);
   return (
     <Modal
       title={`${session.activity_name} · ${dateLabel(session.attendance_date)}`}

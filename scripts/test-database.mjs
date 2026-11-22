@@ -148,6 +148,27 @@ assert.equal(
   0,
 );
 checks++;
+
+const largeImport = Array.from({ length: 501 }, (_, index) => ({
+  full_name: "Fictional bulk student",
+  admission_number: index === 500 ? "TEST-001" : "BULK-" + index,
+  class_id: classes[0].id,
+  league_id: league,
+}));
+await rejects(
+  "students.import",
+  { academic_year_id: year, rows: largeImport },
+  /unique/,
+);
+assert.equal(
+  (
+    await db.query(
+      "select count(*)::int as total from public.students where admission_number like 'BULK-%'",
+    )
+  ).rows[0].total,
+  0,
+);
+checks++;
 await cmd("year.confirm", { id: year });
 await rejects(
   "enrolment.save",
