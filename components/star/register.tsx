@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Pin } from "lucide-react";
+import { ClipboardList, Pin } from "lucide-react";
 import { allPages, command, queryString, useData } from "@/lib/client";
 import type { StudentRow } from "@/lib/types";
 import type { WorkspaceData } from "./workspace";
 import { Button, ErrorNotice, Field, Modal, Panel, SearchBox } from "./ui";
+// Each staff member can pin this many attendance forms for quick access.
+const PIN_LIMIT = 5;
 export function Register({ data }: { data: WorkspaceData }) {
   const [activity, setActivity] = useState(""),
     [date, setDate] = useState(data.overview!.today),
@@ -18,18 +20,27 @@ export function Register({ data }: { data: WorkspaceData }) {
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [request, setRequest] = useState("");
+  const [pinError, setPinError] = useState("");
   const pins = useData<{ activity_id: string; position: number }[]>(
     "table=pinned_forms",
     [],
   );
   const pinned = (id: string) =>
-    pins.data.find((p) => p.activity_id === id)?.position ?? 9;
+    pins.data.find((p) => p.activity_id === id)?.position ?? PIN_LIMIT + 1;
   const activities = data.activities
     .filter((a) => a.active)
     .sort(
       (a, b) => pinned(a.id) - pinned(b.id) || a.name.localeCompare(b.name),
     );
-  const pinnedForms = activities.filter((a) => pinned(a.id) < 9);
+  const pinnedForms = activities.filter((a) => pinned(a.id) <= PIN_LIMIT);
+  async function togglePin(id: string) {
+    setPinError("");
+    try {
+      await command("pin.toggle", { activity_id: id });
+    } catch (e) {
+      setPinError(e instanceof Error ? e.message : "Could not update the pin.");
+    }
+  }
   const form = activities.find((a) => a.id === activity),
     stars = form?.reward_enabled ? form.reward : 0,
     present = (roster?.length || 0) - absent.size;
@@ -114,42 +125,73 @@ export function Register({ data }: { data: WorkspaceData }) {
     <Panel>
       <div className="form">
         <fieldset disabled={busy}>
-          {pinnedForms.length ? (
-            <div className="pinrow">
-              <span className="text-xs text-[var(--soft)]">Pinned forms</span>
-              {pinnedForms.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  className={"chip" + (activity === a.id ? " active" : "")}
-                  onClick={() => {
-                    setActivity(a.id);
-                    reset();
-                  }}
-                >
-                  <Pin size={12} />
-                  {a.name}
-                </button>
-              ))}
-            </div>
-          ) : null}
-          <Field label="Attendance form">
-            <select
-              value={activity}
-              onChange={(e) => {
-                setActivity(e.target.value);
-                reset();
-              }}
-            >
-              <option value="">Select activity</option>
-              {activities.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {pinned(a.id) < 9 ? "★ " : ""}
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <fieldset className="formpick">
+            <legend>
+              Attendance form
+              {activities.length ? (
+                <span className="formpick-count">
+                  {activities.length} available · {pinnedForms.length}/
+                  {PIN_LIMIT} pinned
+                </span>
+              ) : null}
+            </legend>
+            {activities.length ? (
+              <div className="formpick-grid">
+                {activities.map((a) => {
+                  const isPinned = pinned(a.id) <= PIN_LIMIT;
+                  return (
+                    <div
+                      key={a.id}
+                      className={
+                        "formpick-card" + (activity === a.id ? " active" : "")
+                      }
+                    >
+                      <button
+                        type="button"
+                        className="formpick-name"
+                        aria-pressed={activity === a.id}
+                        onClick={() => {
+                          setActivity(a.id);
+                          reset();
+                        }}
+                      >
+                        <ClipboardList size={15} />
+                        <span>{a.name}</span>
+                        <small>
+                          {a.reward_enabled
+                            ? `${a.reward} ${a.reward === 1 ? "star" : "stars"} per present student`
+                            : "Star rewards off"}
+                        </small>
+                      </button>
+                      <button
+                        type="button"
+                        className="formpick-pin"
+                        aria-pressed={isPinned}
+                        aria-label={`${isPinned ? "Unpin" : "Pin"} ${a.name}`}
+                        title={
+                          isPinned
+                            ? "Unpin this form"
+                            : pinnedForms.length >= PIN_LIMIT
+                              ? `Unpin a form first — ${PIN_LIMIT} pins are already in use.`
+                              : `Pin this form (up to ${PIN_LIMIT})`
+                        }
+                        disabled={!isPinned && pinnedForms.length >= PIN_LIMIT}
+                        onClick={() => void togglePin(a.id)}
+                      >
+                        <Pin size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--soft)]">
+                No attendance forms yet. Create one in Attendance forms and it
+                will appear here.
+              </p>
+            )}
+          </fieldset>
+          <ErrorNotice message={pinError} />
           {assignment.data.length ? (
             <p className="text-xs text-[var(--soft)]">
               This form is assigned to {assignment.data.length}{" "}

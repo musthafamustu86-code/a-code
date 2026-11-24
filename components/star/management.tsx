@@ -86,7 +86,7 @@ export function Management({
         <span className="text-xs text-[var(--soft)]">
           {kind === "league"
             ? "League memberships are specific to each academic year."
-            : "Your pinned forms appear first when taking attendance. Pin up to 8."}
+            : "Your pinned forms appear first when taking attendance. Pin up to 5."}
         </span>
         <Button className="ml-auto" onClick={() => openForm(null)}>
           <Plus />
