@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 export async function proxy(request: NextRequest) {
   if (
     request.nextUrl.pathname === "/" ||
-    request.nextUrl.pathname === "/brand/sincere-logo.jpeg"
+    request.nextUrl.pathname.startsWith("/brand/")
   )
     return NextResponse.next();
   let response = NextResponse.next({ request });
@@ -47,5 +47,5 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 export const config = {
-  matcher: ["/", "/((?!api/|login|_next/|favicon.ico|icon.png).*)"],
+  matcher: ["/", "/((?!api/|login|_next/|brand/|favicon.ico|icon.png).*)"],
 };

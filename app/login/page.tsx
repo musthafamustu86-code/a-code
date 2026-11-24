@@ -1,49 +1,37 @@
 "use client";
+import Image from "next/image";
 import { useState } from "react";
-import {
-  ArrowRight,
-  Eye,
-  EyeOff,
-  KeyRound,
-  Orbit,
-  Sparkle,
-} from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
+
 export default function Login() {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [show, setShow] = useState(false);
+
   return (
-    <main className="access">
-      <section className="atlas">
-        <div className="wordmark">
-          <Sparkle /> STAR SYSTEM
-        </div>
-        <div className="sky" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map((n) => (
-            <i
-              key={n}
-              style={{
-                width: 30 + n * 13 + "%",
-                height: 30 + n * 13 + "%",
-                transform: "rotate(" + (-35 + n * 17) + "deg)",
-              }}
-            >
-              <b />
-            </i>
-          ))}
-          <Orbit className="sky-core" />
-        </div>
-        <div className="caption">
-          <small>SINCERE ACADEMY</small>
-          <h1>
-            Attendance <em>&amp;</em>
-            <br />
-            recognition.
-          </h1>
+    <main className="signin">
+      <section className="signin-brand">
+        <Image
+          className="signin-lockup"
+          src="/brand/sincere-academy.webp"
+          width={1400}
+          height={554}
+          alt="Sincere Academy"
+          preload
+          unoptimized
+        />
+        <div className="signin-statement">
+          <p>
+            Attendance, stars and recognition, held in one place for every
+            classroom.
+          </p>
+          <span>Star System</span>
         </div>
       </section>
-      <section className="accessform">
+
+      <section className="signin-panel">
         <form
+          className="signin-form"
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
@@ -65,36 +53,57 @@ export default function Login() {
             }
           }}
         >
-          <KeyRound className="accent" />
-          <h2>Staff sign in</h2>
-          <label>
-            Email address
-            <input name="email" type="email" required autoComplete="username" />
+          <h1>Staff sign in</h1>
+          <p className="signin-lede">
+            Use the account the academy owner issued to you.
+          </p>
+
+          <label className="signin-field">
+            <span className="signin-label">Email address</span>
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="username"
+              placeholder=" "
+            />
+            <i aria-hidden="true" />
           </label>
-          <label>
-            Password
-            <span className="password">
+
+          <label className="signin-field">
+            <span className="signin-label">Password</span>
+            <span className="signin-password">
               <input
                 name="password"
                 type={show ? "text" : "password"}
                 required
                 autoComplete="current-password"
+                placeholder=" "
               />
               <button
                 type="button"
+                className="signin-eye"
                 aria-label={show ? "Hide password" : "Show password"}
                 onClick={() => setShow(!show)}
               >
                 {show ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </span>
+            <i aria-hidden="true" />
           </label>
-          {error && <p role="alert">{error}</p>}
-          <button className="primary" disabled={busy}>
+
+          {error ? (
+            <p role="alert" className="signin-error">
+              {error}
+            </p>
+          ) : null}
+
+          <button className="signin-submit" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
-            <ArrowRight size={17} />
+            <ArrowRight size={17} aria-hidden="true" />
           </button>
-          <footer>For account access, contact the academy owner.</footer>
+
+          <p className="signin-help">Accounts are created by the academy owner.</p>
         </form>
       </section>
     </main>
