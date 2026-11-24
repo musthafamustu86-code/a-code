@@ -12,10 +12,14 @@ const tables = new Set([
   "students",
   "classes",
   "leagues",
+  "class_leagues",
   "academic_years",
   "enrolments",
   "league_assignments",
   "activities",
+  "activity_classes",
+  "activity_leagues",
+  "activity_students",
   "pinned_forms",
   "attendance_sessions",
   "attendance_records",
@@ -74,6 +78,7 @@ export async function GET(request: Request) {
               p_search: params.get("search") || "",
               p_offset: Math.max(0, Number(params.get("offset")) || 0),
               p_desc: params.get("direction") !== "asc",
+              p_league: params.get("league"),
             }),
           },
           token,
@@ -180,6 +185,61 @@ export async function POST(request: Request) {
     const { action, payload } = JSON.parse(body);
     if (typeof action !== "string" || !payload || typeof payload !== "object")
       throw new ApiError("Invalid operation.");
+    if (action === "league.classes") {
+      const { academic_year_id, league_id, class_ids } = payload as Record<
+        string,
+        unknown
+      >;
+      if (
+        typeof academic_year_id !== "string" ||
+        typeof league_id !== "string" ||
+        !Array.isArray(class_ids) ||
+        class_ids.some((id) => typeof id !== "string")
+      )
+        throw new ApiError("Invalid league assignment.");
+      return Response.json({
+        result: await supabase(
+          "/rest/v1/rpc/assign_league_classes",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              p_year: academic_year_id,
+              p_league: league_id,
+              p_classes: class_ids,
+            }),
+          },
+          token,
+        ),
+      });
+    }
+    if (action === "activity.targets") {
+      const { activity_id, class_ids, league_ids, student_ids } =
+        payload as Record<string, unknown>;
+      const list = (value: unknown) =>
+        Array.isArray(value) && value.every((id) => typeof id === "string");
+      if (
+        typeof activity_id !== "string" ||
+        !list(class_ids) ||
+        !list(league_ids) ||
+        !list(student_ids)
+      )
+        throw new ApiError("Invalid attendance form assignment.");
+      return Response.json({
+        result: await supabase(
+          "/rest/v1/rpc/assign_activity_targets",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              p_activity: activity_id,
+              p_classes: class_ids,
+              p_leagues: league_ids,
+              p_students: student_ids,
+            }),
+          },
+          token,
+        ),
+      });
+    }
     const result = await supabase(
       "/rest/v1/rpc/command",
       {

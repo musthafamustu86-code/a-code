@@ -12,7 +12,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { command, dateLabel, queryString, useData } from "@/lib/client";
-import { parseCSV } from "@/lib/csv";
+import { csvCell, parseCSV } from "@/lib/csv";
 import { BulkPhotos, StudentAvatar } from "./photos";
 import type {
   Assignment,
@@ -235,11 +235,7 @@ export function Students({ data }: { data: WorkspaceData }) {
         <BulkPhotos year={yearId || ""} onClose={() => setModal(null)} />
       ) : null}
       {modal === "import" ? (
-        <ImportStudents
-          data={data}
-          year={yearId || ""}
-          onClose={() => setModal(null)}
-        />
+        <ImportStudents data={data} onClose={() => setModal(null)} />
       ) : null}
       {selected ? (
         <StudentProfile
@@ -253,20 +249,55 @@ export function Students({ data }: { data: WorkspaceData }) {
 }
 function ImportStudents({
   data,
-  year,
   onClose,
 }: {
   data: WorkspaceData;
-  year: string;
   onClose: () => void;
 }) {
   const [rows, setRows] = useState<string[][]>([]);
   const [error, setError] = useState("");
+  const importYear =
+    data.years.find((y) => y.status === "active") ??
+    data.years.find((y) => y.status === "draft");
+  const { data: classLeagues } = useData<
+    { class_id: string; league_id: string }[]
+  >(
+    importYear ? `table=class_leagues&academic_year_id=${importYear.id}` : null,
+    [],
+  );
+  const leagueFor = (classId: string) =>
+    classLeagues.find((m) => m.class_id === classId)?.league_id ?? "";
+  const sample = [
+    ["admission_number", "full_name", "class"],
+    ...[...data.classes]
+      .filter((c) => c.active)
+      .slice(0, 3)
+      .map((c, i) => [
+        `SAMPLE-${String(i + 1).padStart(3, "0")}`,
+        `Sample student ${i + 1}`,
+        c.name,
+      ]),
+  ];
+  function downloadSample() {
+    const csv =
+      sample.map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+    const url = URL.createObjectURL(
+      new Blob([csv], { type: "text/csv;charset=utf-8" }),
+    );
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "students-import-sample.csv";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
   return (
     <Modal title="Import students from CSV" onClose={onClose}>
       <Form
         submit={`Import ${rows.length} students`}
-        onSubmit={async (f) => {
+        disabled={!importYear}
+        onSubmit={async () => {
           if (!rows.length) throw new Error("Select a CSV first.");
           const mapped = rows.map((r, i) => {
             if (r.length !== 3)
@@ -274,19 +305,27 @@ function ImportStudents({
             const c = data.classes.find(
               (c) => c.name.toLowerCase() === r[2]?.trim().toLowerCase(),
             );
-            if (!r[0]?.trim() || !r[1]?.trim() || !c)
+            if (!r[0]?.trim() || !r[1]?.trim())
               throw new Error(
-                `Row ${i + 2}: admission number, name, and an existing class are required.`,
+                `Row ${i + 2}: an admission number and a full name are required.`,
+              );
+            if (!c)
+              throw new Error(
+                `Row ${i + 2}: there is no class named "${r[2]?.trim()}". Use one of: ${data.classes
+                  .filter((k) => k.active)
+                  .map((k) => k.name)
+                  .join(", ")}.`,
               );
             return {
               admission_number: r[0].trim(),
               full_name: r[1].trim(),
               class_id: c.id,
-              league_id: f.get("league_id"),
+              league_id: leagueFor(c.id),
             };
           });
+          if (!importYear) throw new Error("Start an academic year first.");
           await command("students.import", {
-            academic_year_id: f.get("academic_year_id"),
+            academic_year_id: importYear.id,
             rows: mapped,
           });
           onClose();
@@ -295,6 +334,15 @@ function ImportStudents({
         <div className="notice">
           Columns, in order: admission_number, full_name, class. A header row is
           optional. Duplicate admissions roll back the full import.
+        </div>
+        <div className="record-actions">
+          <Button type="button" variant="outline" onClick={downloadSample}>
+            <Download />
+            Download sample CSV
+          </Button>
+          <p className="section-description">
+            Edit the sample, then select the file above.
+          </p>
         </div>
         <Field label="CSV file">
           <input
@@ -324,29 +372,34 @@ function ImportStudents({
           />
         </Field>
         <ErrorNotice message={error} />
-        <Field label="Academic year">
-          <select name="academic_year_id" required defaultValue={year}>
-            {data.years
-              .filter((y) => y.status !== "closed")
-              .map((y) => (
-                <option key={y.id} value={y.id}>
-                  {y.name}
-                </option>
-              ))}
-          </select>
-        </Field>
-        <Field label="Assign league to imported students">
-          <select name="league_id" required>
-            <option value="">Choose a league</option>
-            {data.leagues
-              .filter((l) => l.active)
-              .map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-          </select>
-        </Field>
+        {importYear ? (
+          <>
+            <div className="notice">
+              <span>
+                Students are enrolled into {importYear.name} automatically, and
+                each one joins the league given to its class in{" "}
+                <Link href="/leagues">Leagues</Link>. No league or year
+                selection is needed here.
+              </span>
+            </div>
+            {classLeagues.length ? null : (
+              <div className="notice">
+                <span>
+                  No class has a league yet, so these students import without
+                  one until you assign classes to a league.
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="notice">
+            <span>
+              No open academic year yet, so there is nothing to import into.{" "}
+              <Link href="/academic-years">Start an academic year</Link>, then
+              come back and import.
+            </span>
+          </div>
+        )}
         {rows.length ? (
           <div className="table-wrap">
             <table>
