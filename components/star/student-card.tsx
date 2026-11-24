@@ -20,16 +20,29 @@ export interface SessionLite {
 }
 
 function cumulativeStars(transactions: Transaction[]) {
-  const byDate = new Map<string, number>();
-  [...transactions]
-    .sort((a, b) => (a.earned_on < b.earned_on ? -1 : 1))
-    .forEach((t) =>
-      byDate.set(
-        t.earned_on,
-        (byDate.get(t.earned_on) || 0) + Number(t.amount),
-      ),
-    );
+  const sorted = [...transactions].sort((a, b) =>
+    a.earned_on === b.earned_on
+      ? a.created_at < b.created_at
+        ? -1
+        : 1
+      : a.earned_on < b.earned_on
+        ? -1
+        : 1,
+  );
+  const days = new Set(sorted.map((t) => t.earned_on));
   let running = 0;
+  // A whole term's awards often land on one day; show each award as its own
+  // step so the chart still reads as progress instead of a single dot.
+  if (days.size < 2) {
+    return sorted.map((t) => {
+      running += Number(t.amount);
+      return { date: t.earned_on, total: running };
+    });
+  }
+  const byDate = new Map<string, number>();
+  sorted.forEach((t) =>
+    byDate.set(t.earned_on, (byDate.get(t.earned_on) || 0) + Number(t.amount)),
+  );
   return [...byDate.entries()].map(([date, amount]) => {
     running += amount;
     return { date, total: running };
@@ -117,7 +130,7 @@ export function StudentCard({
             </h3>
             <span>{totalStars} total</span>
           </header>
-          <StarProgress points={points} />
+          <StarProgress points={points} awards={transactions.length} />
         </section>
         <section className="insight">
           <header>
@@ -211,57 +224,81 @@ export function StudentCard({
   );
 }
 
-function StarProgress({ points }: { points: { date: string; total: number }[] }) {
+function StarProgress({
+  points,
+  awards,
+}: {
+  points: { date: string; total: number }[];
+  awards: number;
+}) {
   if (!points.length)
     return <p className="insight-empty">No stars recorded yet.</p>;
+  const chart = points.length === 1 ? [{ ...points[0], total: 0 }, points[0]] : points;
   const width = 320;
   const height = 108;
   const pad = 8;
-  const max = Math.max(1, ...points.map((point) => point.total));
+  const max = Math.max(1, ...chart.map((point) => point.total));
   const span = width - pad * 2;
   const x = (index: number) =>
-    points.length === 1 ? width / 2 : pad + (index / (points.length - 1)) * span;
+    chart.length === 1 ? width / 2 : pad + (index / (chart.length - 1)) * span;
   const y = (value: number) => height - pad - (value / max) * (height - pad * 2);
-  const line = points
+  const line = chart
     .map(
       (point, index) =>
         `${index === 0 ? "M" : "L"}${x(index).toFixed(1)},${y(point.total).toFixed(1)}`,
     )
     .join(" ");
-  const area = `${line} L${x(points.length - 1).toFixed(1)},${height - pad} L${x(0).toFixed(1)},${height - pad} Z`;
-  const last = points[points.length - 1];
+  const area = `${line} L${x(chart.length - 1).toFixed(1)},${height - pad} L${x(0).toFixed(1)},${height - pad} Z`;
+  const last = chart[chart.length - 1];
+  const first = points[0];
+  const oneDay = first.date === last.date;
   return (
-    <svg
-      className="star-progress"
-      viewBox={`0 0 ${width} ${height}`}
-      role="img"
-      aria-label={`Star progress: ${points.length} award days, ${last.total} stars in total`}
-    >
-      <defs>
-        <linearGradient id="star-progress-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2f7a5f" stopOpacity="0.32" />
-          <stop offset="100%" stopColor="#2f7a5f" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <line
-        x1={pad}
-        y1={height - pad}
-        x2={width - pad}
-        y2={height - pad}
-        className="star-progress-base"
-      />
-      {points.length > 1 ? <path d={area} fill="url(#star-progress-fill)" /> : null}
-      <path d={line} className="star-progress-line" />
-      <circle cx={x(points.length - 1)} cy={y(last.total)} r="3.6" className="star-progress-dot" />
-      <text
-        x={x(points.length - 1)}
-        y={Math.max(10, y(last.total) - 9)}
-        textAnchor="end"
-        className="star-progress-label"
+    <>
+      <svg
+        className="star-progress"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`Star progress: ${awards} award${awards === 1 ? "" : "s"}, ${last.total} stars in total`}
       >
-        {last.total}
-      </text>
-    </svg>
+        <defs>
+          <linearGradient id="star-progress-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2f7a5f" stopOpacity="0.32" />
+            <stop offset="100%" stopColor="#2f7a5f" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line
+          x1={pad}
+          y1={height - pad}
+          x2={width - pad}
+          y2={height - pad}
+          className="star-progress-base"
+        />
+        <path d={area} fill="url(#star-progress-fill)" />
+        <path d={line} className="star-progress-line" />
+        <circle
+          cx={x(chart.length - 1)}
+          cy={y(last.total)}
+          r="3.6"
+          className="star-progress-dot"
+        />
+        <text
+          x={x(chart.length - 1)}
+          y={Math.max(10, y(last.total) - 9)}
+          textAnchor="end"
+          className="star-progress-label"
+        >
+          {last.total}
+        </text>
+      </svg>
+      <p className="star-progress-meta">
+        <span>{dateLabel(first.date)}</span>
+        <span>
+          {oneDay
+            ? `${awards} award${awards === 1 ? "" : "s"}`
+            : dateLabel(last.date)}
+        </span>
+      </p>
+    </>
   );
 }
 
