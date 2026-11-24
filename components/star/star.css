@@ -1293,6 +1293,69 @@ td.actions {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
+.record-tabs {
+  padding: 0 22px 14px;
+}
+.group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 12px;
+  padding: 20px 22px 22px;
+}
+.group-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.16s,
+    background 0.16s;
+}
+.group-card:hover {
+  border-color: var(--purple);
+  background: var(--purple-wash);
+}
+.group-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--purple-wash);
+  color: var(--purple);
+  display: grid;
+  place-items: center;
+}
+.group-card:hover .group-icon {
+  background: var(--card);
+}
+.group-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.group-text strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-text small {
+  font-size: 10px;
+  color: var(--soft);
+}
+.group-go {
+  margin-left: auto;
+  flex: none;
+  color: #b0aac0;
+}
 .management-card {
   padding: 22px;
 }

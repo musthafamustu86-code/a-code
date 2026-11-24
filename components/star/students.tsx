@@ -3,10 +3,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { Admission } from "./admission";
 import {
+  ArrowLeft,
   ArrowUpRight,
   Download,
+  GraduationCap,
   Images,
   Plus,
+  Shield,
   Upload,
   UserRound,
   UsersRound,
@@ -37,42 +40,73 @@ import {
 } from "./ui";
 export function Students({ data }: { data: WorkspaceData }) {
   const [search, setSearch] = useState("");
-  const [classId, setClass] = useState("");
-  const [league, setLeague] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(0);
   const [modal, setModal] = useState<"add" | "import" | "photos" | null>(null);
   const [selected, setSelected] = useState<StudentRow | null>(null);
   const [year, setYear] = useState("");
+  const [group, setGroup] = useState<"class" | "league">("class");
+  const [open, setOpen] = useState<{
+    group: "class" | "league";
+    id: string;
+  } | null>(null);
   const yearId = year || data.overview?.active_year || data.years[0]?.id;
+  // The year's whole register is fetched once so every class and league card
+  // can show how many students it holds.
+  const { data: directory } = useData<StudentRow[]>(
+    yearId ? `all:table=student_directory&academic_year_id=${yearId}` : null,
+    [],
+  );
+  const counts = new Map<string, number>();
+  for (const student of directory) {
+    const key = group === "class" ? student.class_id : student.league_id || "";
+    if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const cards = (group === "class"
+    ? data.classes.filter((item) => item.active || counts.has(item.id))
+    : data.leagues.filter((item) => item.active || counts.has(item.id))
+  ).map((item) => ({
+    id: item.id,
+    name: item.name,
+    count: counts.get(item.id) ?? 0,
+  }));
+  const roster = open !== null || Boolean(search);
   const {
     data: students,
     error,
     loading,
   } = useData<StudentRow[]>(
-    yearId
+    yearId && roster
       ? queryString({
           table: "student_directory",
           academic_year_id: yearId,
           search,
-          class_id: classId,
-          league_id: league,
           active: status,
+          class_id: open && open.group === "class" ? open.id : null,
+          league_id: open && open.group === "league" ? open.id : null,
           offset: page * 100,
         })
       : null,
     [],
   );
+  const heading = open
+    ? (open.group === "class" ? data.classes : data.leagues).find(
+        (item) => item.id === open.id,
+      )?.name || "All students"
+    : group === "class"
+      ? "Classes"
+      : "Leagues";
   function filter(fn: () => void) {
     fn();
     setPage(0);
   }
-  const filtered = Boolean(search || classId || league || status);
-  function clearFilters() {
-    setSearch("");
-    setClass("");
-    setLeague("");
-    setStatus("");
+  function browse(next: "class" | "league") {
+    setGroup(next);
+    setOpen(null);
+    setPage(0);
+  }
+  function openGroup(id: string) {
+    setOpen({ group, id });
     setPage(0);
   }
   return (
@@ -80,7 +114,7 @@ export function Students({ data }: { data: WorkspaceData }) {
       <ErrorNotice message={error} />
       <Panel className="directory-panel">
         <div className="record-head">
-          <h2>Enrolment register</h2>
+          <h2>{heading}</h2>
           <div className="record-actions">
             <Button variant="outline" onClick={() => setModal("photos")}>
               <Images />
@@ -94,6 +128,26 @@ export function Students({ data }: { data: WorkspaceData }) {
               <Plus />
               Add student
             </Button>
+          </div>
+        </div>
+        <div className="record-tabs">
+          <div className="tabs" role="tablist" aria-label="Group students">
+            <button
+              role="tab"
+              aria-selected={group === "class"}
+              className={group === "class" ? "active" : ""}
+              onClick={() => browse("class")}
+            >
+              By class
+            </button>
+            <button
+              role="tab"
+              aria-selected={group === "league"}
+              className={group === "league" ? "active" : ""}
+              onClick={() => browse("league")}
+            >
+              By league
+            </button>
           </div>
         </div>
         <div className="record-filters">
@@ -113,30 +167,18 @@ export function Students({ data }: { data: WorkspaceData }) {
               </option>
             ))}
           </select>
-          <select
-            aria-label="Class filter"
-            value={classId}
-            onChange={(event) => filter(() => setClass(event.target.value))}
-          >
-            <option value="">All classes</option>
-            {data.classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="League filter"
-            value={league}
-            onChange={(event) => filter(() => setLeague(event.target.value))}
-          >
-            <option value="">All leagues</option>
-            {data.leagues.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          {open ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setOpen(null);
+                setPage(0);
+              }}
+            >
+              <ArrowLeft />
+              All {group === "class" ? "classes" : "leagues"}
+            </Button>
+          ) : null}
           <select
             aria-label="Status filter"
             value={status}
@@ -147,82 +189,152 @@ export function Students({ data }: { data: WorkspaceData }) {
             <option value="false">Inactive</option>
           </select>
         </div>
-        <div className="table-wrap">
-          <table aria-label="Student enrolments">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Admission number</th>
-                <th>Class</th>
-                <th>League</th>
-                <th>Status</th>
-                <th>Profile</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((s) => (
-                <tr key={s.id}>
-                  <td>
-                    <div className="student-cell">
-                      <StudentAvatar student={s} />
-                      <strong>{s.full_name}</strong>
-                    </div>
-                  </td>
-                  <td className="record-id">{s.admission_number}</td>
-                  <td>{s.class_name}</td>
-                  <td>{s.league_name || "Unassigned"}</td>
-                  <td>
-                    <Tag tone={s.active ? "green" : "gray"}>
-                      {s.active ? "Active" : "Inactive"}
-                    </Tag>
-                  </td>
-                  <td>
+        {roster ? (
+          <>
+            <div className="table-wrap">
+              <table aria-label="Student enrolments">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Admission number</th>
+                    <th>Class</th>
+                    <th>League</th>
+                    <th>Status</th>
+                    <th>Profile</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((s) => (
+                    <tr key={s.id}>
+                      <td>
+                        <div className="student-cell">
+                          <StudentAvatar student={s} />
+                          <strong>{s.full_name}</strong>
+                        </div>
+                      </td>
+                      <td className="record-id">{s.admission_number}</td>
+                      <td>{s.class_name}</td>
+                      <td>{s.league_name || "Unassigned"}</td>
+                      <td>
+                        <Tag tone={s.active ? "green" : "gray"}>
+                          {s.active ? "Active" : "Inactive"}
+                        </Tag>
+                      </td>
+                      <td>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelected(s)}
+                        >
+                          <UserRound />
+                          View profile
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {!students.length && (
+              <Empty
+                icon={UsersRound}
+                title={
+                  loading
+                    ? "Loading students…"
+                    : search
+                      ? "No matching students"
+                      : yearId
+                        ? "No students here yet"
+                        : "No academic year selected"
+                }
+                action={
+                  loading ? null : search ? (
+                    <Button variant="outline" onClick={() => setSearch("")}>
+                      Clear search
+                    </Button>
+                  ) : open ? (
                     <Button
                       variant="outline"
-                      size="sm"
-                      onClick={() => setSelected(s)}
+                      onClick={() => {
+                        setOpen(null);
+                        setPage(0);
+                      }}
                     >
-                      <UserRound />
-                      View profile
+                      All {group === "class" ? "classes" : "leagues"}
                     </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {!students.length && (
+                  ) : !yearId ? (
+                    <Link className="record-link" href="/academic-years">
+                      Manage academic years <ArrowUpRight size={14} />
+                    </Link>
+                  ) : null
+                }
+              >
+                {loading
+                  ? "Retrieving the enrolment register."
+                  : search
+                    ? "Try another name or admission number."
+                    : open
+                      ? "No student is enrolled here for this academic year."
+                      : yearId
+                        ? "Add a student or import a CSV to populate this academic year."
+                        : "Create an academic year before registering or importing students."}
+              </Empty>
+            )}
+            <Pager page={page} onChange={setPage} count={students.length} />
+          </>
+        ) : cards.length ? (
+          <div className="group-grid">
+            <button
+              className="group-card"
+              onClick={() => openGroup("")}
+              aria-label={`All students, ${directory.length} students`}
+            >
+              <span className="group-icon">
+                <UsersRound size={17} />
+              </span>
+              <span className="group-text">
+                <strong>All students</strong>
+                <small>
+                  {directory.length}{" "}
+                  {directory.length === 1 ? "student" : "students"}
+                </small>
+              </span>
+              <ArrowUpRight className="group-go" size={15} />
+            </button>
+            {cards.map((item) => (
+              <button
+                key={item.id}
+                className="group-card"
+                onClick={() => openGroup(item.id)}
+                aria-label={`${item.name}, ${item.count} students`}
+              >
+                <span className="group-icon">
+                  {group === "class" ? (
+                    <GraduationCap size={17} />
+                  ) : (
+                    <Shield size={17} />
+                  )}
+                </span>
+                <span className="group-text">
+                  <strong>{item.name}</strong>
+                  <small>
+                    {item.count} {item.count === 1 ? "student" : "students"}
+                  </small>
+                </span>
+                <ArrowUpRight className="group-go" size={15} />
+              </button>
+            ))}
+          </div>
+        ) : (
           <Empty
-            icon={UsersRound}
-            title={
-              loading
-                ? "Loading students…"
-                : filtered
-                  ? "No matching students"
-                  : "No students in this register"
-            }
-            action={
-              filtered ? (
-                <Button variant="outline" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              ) : !loading && !yearId ? (
-                <Link className="record-link" href="/academic-years">
-                  Manage academic years <ArrowUpRight size={14} />
-                </Link>
-              ) : null
-            }
+            icon={group === "class" ? GraduationCap : Shield}
+            title={group === "class" ? "No classes yet" : "No leagues yet"}
           >
-            {loading
-              ? "Retrieving the enrolment register."
-              : filtered
-                ? "Try another name, admission number or filter."
-                : yearId
-                  ? "Add a student or import a CSV to populate this academic year."
-                  : "Create an academic year before registering or importing students."}
+            {group === "class"
+              ? "Set up classes to group the register by class."
+              : "Set up leagues to browse students league-wise."}
           </Empty>
         )}
-        <Pager page={page} onChange={setPage} count={students.length} />
       </Panel>
       {modal === "add" ? (
         <Admission

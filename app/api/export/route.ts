@@ -5,6 +5,7 @@ import type {
   AttendanceRecord,
   AttendanceSession,
   Named,
+  Ranking,
   Student,
   Transaction,
 } from "@/lib/types";
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
         "academic-year",
         "transactions",
         "attendance",
+        "leaderboard",
       ].includes(type) ||
       !["pdf", "csv"].includes(format)
     )
@@ -68,7 +70,66 @@ export async function GET(request: Request) {
     if (!settings.length) throw new ApiError("Staff membership required.", 403);
     const sections: ReportSection[] = [];
     let title = "Star transaction report";
-    if (type === "attendance") {
+    if (type === "leaderboard") {
+      if (!p.get("league")) throw new ApiError("Select a league.");
+      const start = p.get("start"),
+        end = p.get("end");
+      for (const value of [start, end])
+        if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value))
+          throw new ApiError("Invalid report date.");
+      const [league] = (await supabase(
+        `/rest/v1/leagues?select=name&id=eq.${p.get("league")}`,
+        {},
+        token,
+      )) as Named[];
+      if (!league) throw new ApiError("League not found.", 404);
+      const rankings: Ranking[] = [];
+      for (let offset = 0; ; offset += 100) {
+        const page = (await supabase(
+          "/rest/v1/rpc/individual_rankings",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              p_year: p.get("year") || null,
+              p_start: start || null,
+              p_end: end || null,
+              p_search: "",
+              p_offset: offset,
+              p_desc: true,
+              p_limit: 100,
+              p_current_week: false,
+              p_league: p.get("league"),
+            }),
+          },
+          token,
+        )) as Ranking[];
+        rankings.push(...page);
+        if (page.length < 100) break;
+      }
+      const period =
+        start && end
+          ? `${start} to ${end}`
+          : start
+            ? `${start} to present`
+            : end
+              ? `Up to ${end}`
+              : "All dates";
+      const total = rankings.reduce((n, row) => n + Number(row.stars), 0);
+      title = `Leaderboard report: ${league.name}`;
+      sections.push({
+        title: `${league.name} leaderboard`,
+        subtitle: `Period: ${period}\nRanked by total stars`,
+        headers: ["Period", "League", "Student", "ID code", "Total stars"],
+        rows: rankings.map((row) => [
+          period,
+          league.name,
+          row.full_name,
+          row.admission_number,
+          String(row.stars),
+        ]),
+        summary: `${rankings.length} students, ${total} stars in total`,
+      });
+    } else if (type === "attendance") {
       title = "Attendance report";
       const q = new URLSearchParams({
         select: "*",
@@ -121,8 +182,8 @@ export async function GET(request: Request) {
           ),
         ]);
         sections.push({
-          title: `${s.activity_name} | ${s.attendance_date}`,
-          subtitle: `Institution: ${s.institution_name}\nOriginal remarks: ${s.original_remarks || "None"}\nClasses: ${s.selected_classes.map((c) => c.name).join(", ")}\nSubmitted by ${s.staff_name} at ${s.submitted_at}\nEffective reward: ${s.reward_snapshot} stars per present student.\n${s.rewards_enabled == null ? "Original enable flag unavailable." : "Configured stars: " + s.configured_reward + " | Rewards " + (s.rewards_enabled ? "enabled" : "disabled")}\nCurrent audited remark: ${remarks[0]?.content || "None"}`,
+          title: `${s.activity_name} | ${s.attendance_date}${s.attendance_time ? ` ${s.attendance_time.slice(0, 5)}` : ""}`,
+          subtitle: `Institution: ${s.institution_name}\nSession: ${s.attendance_date}${s.attendance_time ? ` at ${s.attendance_time.slice(0, 5)}` : ""}\nOriginal remarks: ${s.original_remarks || "None"}\nClasses: ${s.selected_classes.map((c) => c.name).join(", ")}\nSubmitted by ${s.staff_name} at ${s.submitted_at}\nStars awarded: ${s.stars_awarded === false ? "No" : "Yes"}\nEffective reward: ${s.reward_snapshot} stars per present student.\n${s.rewards_enabled == null ? "Original enable flag unavailable." : "Configured stars: " + s.configured_reward + " | Rewards " + (s.rewards_enabled ? "enabled" : "disabled")}\nCurrent audited remark: ${remarks[0]?.content || "None"}`,
           headers: ["Admission", "Student", "Class", "Status", "Stars"],
           rows: records.map((r) => [
             r.admission_number,

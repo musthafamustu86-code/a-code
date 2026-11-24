@@ -428,7 +428,7 @@ export function Reports({ data }: { data: WorkspaceData }) {
   const params = queryString({
     type,
     year,
-    league: type === "league" ? league : null,
+    league: type === "league" || type === "leaderboard" ? league : null,
     class: type === "class" ? classId : null,
     admission: type === "student" ? student : null,
     activity: type === "attendance" ? activity : null,
@@ -480,6 +480,7 @@ export function Reports({ data }: { data: WorkspaceData }) {
               <option value="student">Individual student</option>
               <option value="class">Class-wise report</option>
               <option value="league">League report</option>
+              <option value="leaderboard">League leaderboard</option>
               <option value="attendance">Attendance activity</option>
               <option value="academic-year">Academic-year report</option>
             </select>
@@ -519,7 +520,7 @@ export function Reports({ data }: { data: WorkspaceData }) {
               </select>
             </Field>
           ) : null}
-          {type === "league" ? (
+          {type === "league" || type === "leaderboard" ? (
             <Field label="League">
               <select
                 value={league}
@@ -578,7 +579,9 @@ export function Reports({ data }: { data: WorkspaceData }) {
                     ? "Choose a class."
                     : type === "league" && !league
                       ? "Choose a league."
-                      : type === "academic-year" && !year
+                      : type === "leaderboard" && !league
+                        ? "Choose a league."
+                        : type === "academic-year" && !year
                         ? "Choose an academic year."
                         : start && end && start > end
                           ? "End date must follow start date."
@@ -598,7 +601,9 @@ export function Reports({ data }: { data: WorkspaceData }) {
                     ? "Choose a class."
                     : type === "league" && !league
                       ? "Choose a league."
-                      : type === "academic-year" && !year
+                      : type === "leaderboard" && !league
+                        ? "Choose a league."
+                        : type === "academic-year" && !year
                         ? "Choose an academic year."
                         : start && end && start > end
                           ? "End date must follow start date."
