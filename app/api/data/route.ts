@@ -72,7 +72,14 @@ export async function GET(request: Request) {
             body: JSON.stringify({
               p_year: params.get("year"),
               p_current_week: params.get("period") === "current-week",
-              p_limit: params.get("period") === "current-week" ? 5 : 100,
+              p_limit: Math.min(
+                100,
+                Math.max(
+                  1,
+                  Number(params.get("limit")) ||
+                    (params.get("period") === "current-week" ? 5 : 100),
+                ),
+              ),
               p_start: params.get("start"),
               p_end: params.get("end"),
               p_search: params.get("search") || "",

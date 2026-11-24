@@ -135,10 +135,12 @@ export function Modal({
   title,
   children,
   onClose,
+  wide = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  wide?: boolean;
 }) {
   return (
     <div
@@ -151,7 +153,7 @@ export function Modal({
         open
         aria-modal="true"
         aria-label={title}
-        className="modal"
+        className={"modal" + (wide ? " modal-wide" : "")}
         onCancel={onClose}
         onKeyDown={(e) => {
           if (e.key === "Escape") onClose();

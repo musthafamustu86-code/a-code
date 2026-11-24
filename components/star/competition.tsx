@@ -1,16 +1,15 @@
-"use client";
-import { useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
-import { Download, Star, Trophy, Award } from "lucide-react";
+﻿"use client";
+import { useEffect, useState } from "react";
+import { Download, Star, Award } from "lucide-react";
 import { command, dateLabel, queryString, useData } from "@/lib/client";
-import type { Period, Ranking, Winner } from "@/lib/types";
+import type { Period, Winner } from "@/lib/types";
 import {
   AcademicCalendarPicker,
   useAcademicCalendar,
 } from "./academic-calendar";
 import type { WorkspaceData } from "./workspace";
+import { LeaderboardStage } from "./leaderboard-stage";
 import {
-  AnimatedNumber,
   Button,
   DownloadLink,
   Empty,
@@ -60,198 +59,32 @@ function StudentRankings({
   reverse: boolean;
   leagues: WorkspaceData["leagues"];
 }) {
-  const [pager, setPager] = useState({ key: "", page: 0 });
-  const [flash, setFlash] = useState("");
-  const leader = useRef("");
-  const reduced = useReducedMotion();
-  // Empty selection rotates the board through every league, 15 seconds each.
-  const [pick, setPick] = useState("");
-  const [tick, setTick] = useState(0);
   const boards = leagues.filter((league) => league.active);
-  const rotating = !pick && boards.length > 1;
-  const league = pick
-    ? leagues.find((l) => l.id === pick)
-    : boards.length
-      ? boards[tick % boards.length]
-      : undefined;
-  const leagueId = league?.id || "";
-  useEffect(() => {
-    if (!rotating) return;
-    const timer = window.setInterval(() => setTick((t) => t + 1), 15000);
-    return () => window.clearInterval(timer);
-  }, [rotating, boards.length]);
-  const filterKey = JSON.stringify([
-    calendar.filterKey,
-    search,
-    reverse,
-    leagueId,
-  ]);
-  const page = pager.key === filterKey ? pager.page : 0;
-  const setPage = (next: number) => setPager({ key: filterKey, page: next });
   const allTime = calendar.kind === "all";
-  const query =
-    allTime || calendar.range
-      ? queryString({
-          rpc: "individual_rankings",
-          year:
-            allTime || calendar.kind === "custom"
-              ? undefined
-              : calendar.year?.id,
-          ...calendar.range,
-          search,
-          direction: reverse ? "asc" : "desc",
-          league: leagueId,
-          offset: page * 100,
-        })
-      : null;
-  const { data: rows, error, loading, reload } = useData<Ranking[]>(query, []);
-  useEffect(() => {
-    const refetch = () => {
-      if (!document.hidden) void reload();
-    };
-    window.addEventListener("focus", refetch);
-    document.addEventListener("visibilitychange", refetch);
-    return () => {
-      window.removeEventListener("focus", refetch);
-      document.removeEventListener("visibilitychange", refetch);
-    };
-  }, [reload]);
-  useEffect(() => {
-    const first = rows.find((row) => row.rank === 1)?.id || "";
-    const changed =
-      !!first && !!leader.current && first !== leader.current && !reduced;
-    leader.current = first;
-    if (!changed) return;
-    const frame = requestAnimationFrame(() => setFlash(first));
-    return () => cancelAnimationFrame(frame);
-  }, [rows, reduced]);
-  useEffect(() => {
-    if (!flash) return;
-    const timer = window.setTimeout(() => setFlash(""), 1500);
-    return () => window.clearTimeout(timer);
-  }, [flash]);
+  const label =
+    calendar.kind === "all"
+      ? "All academic years"
+      : calendar.range
+        ? calendar.rangeLabel
+        : "Individual leaderboard";
+  const params: Record<string, string | undefined> = {
+    year: allTime || calendar.kind === "custom" ? undefined : calendar.year?.id,
+    start: calendar.range?.start,
+    end: calendar.range?.end,
+    search,
+    direction: reverse ? "asc" : "desc",
+  };
   return (
-    <>
-      <div className="toolbar">
-        <select
-          aria-label="Leaderboard league"
-          value={pick}
-          onChange={(event) => {
-            setPick(event.target.value);
-            setTick(0);
-          }}
-        >
-          <option value="">
-            {rotating || boards.length > 1
-              ? "Rotate leagues (every 15 seconds)"
-              : "All leagues"}
-          </option>
-          {boards.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name}
-            </option>
-          ))}
-        </select>
-        {boards.length > 1 ? (
-          <div className="boarddots" role="tablist" aria-label="League boards">
-            {boards.map((l) => (
-              <button
-                key={l.id}
-                role="tab"
-                aria-selected={l.id === leagueId}
-                aria-label={l.name}
-                onClick={() => {
-                  setPick(l.id);
-                  setTick(0);
-                }}
-              />
-            ))}
-          </div>
-        ) : null}
-        {rotating ? (
-          <span className="text-xs text-[var(--soft)]">
-            Showing {league?.name} · switches league every 15 seconds
-          </span>
-        ) : null}
-      </div>
-      <ErrorNotice message={error} />
-      <Panel>
-        <div className="panel-heading">
-          <h2>
-            <Trophy className="gold-text" size={21} />
-            Individual leaderboard
-          </h2>
-          <span className="inline-flex gap-2 items-center">
-            <Tag>{league?.name || "All leagues"}</Tag>
-            <Tag>Ties share a rank</Tag>
-          </span>
-        </div>
-        {rows.length ? (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Student</th>
-                  <th>Admission</th>
-                  <th className="record-number">Stars earned</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <motion.tr
-                    key={row.id}
-                    layout={reduced ? false : "position"}
-                    transition={{ duration: 0.22 }}
-                    className={flash === row.id ? "rank-flash" : undefined}
-                  >
-                    <td>
-                      {row.rank === 1 ? (
-                        <Trophy
-                          className="gold-text"
-                          size={19}
-                          aria-label="First place"
-                        />
-                      ) : (
-                        row.rank
-                      )}
-                    </td>
-                    <td>
-                      <strong>{row.full_name}</strong>
-                    </td>
-                    <td>#{row.admission_number}</td>
-                    <td className="record-number">
-                      <span className="inline-flex gap-2 items-center gold-text">
-                        <Star size={14} fill="currentColor" />
-                        <AnimatedNumber value={Number(row.stars)} />
-                      </span>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <Empty
-            icon={Trophy}
-            title={
-              loading || calendar.loading
-                ? "Loading rankings…"
-                : "No rankings to show"
-            }
-          >
-            {loading || calendar.loading
-              ? "Retrieving student totals."
-              : search
-                ? "Try another student name or admission number."
-                : "Rankings appear for students enrolled in the selected period."}
-          </Empty>
-        )}
-        <Pager page={page} onChange={setPage} count={rows.length} />
-      </Panel>
-    </>
+    <LeaderboardStage
+      leagues={boards}
+      params={params}
+      limit={100}
+      eyebrow={`INDIVIDUAL LEADERBOARD Â· ${label.toUpperCase()}`}
+      href={null}
+    />
   );
 }
+
 export function Achievements({ data }: { data: WorkspaceData }) {
   const [year, setYear] = useState("");
   const [league, setLeague] = useState("");
@@ -392,7 +225,7 @@ export function Achievements({ data }: { data: WorkspaceData }) {
                   {w.league_name}
                   <br />
                   {p
-                    ? `${dateLabel(p.start_date)} – ${dateLabel(p.end_date)}`
+                    ? `${dateLabel(p.start_date)} â€“ ${dateLabel(p.end_date)}`
                     : ""}
                 </p>
                 <Tag tone="gold">{w.stars} stars earned</Tag>

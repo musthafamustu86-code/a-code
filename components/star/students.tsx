@@ -17,6 +17,11 @@ import {
 import { command, dateLabel, queryString, useData } from "@/lib/client";
 import { csvCell, parseCSV } from "@/lib/csv";
 import { BulkPhotos, StudentAvatar } from "./photos";
+import {
+  StudentCard,
+  type SessionLite,
+  type StudentAttendanceRow,
+} from "./student-card";
 import type {
   Assignment,
   Enrolment,
@@ -567,23 +572,31 @@ function StudentProfile({
     `table=star_transactions&student_id=${student.id}`,
     [],
   );
+  const { data: attendance } = useData<StudentAttendanceRow[]>(
+    `all:table=attendance_records&student_id=${student.id}`,
+    [],
+  );
+  const { data: sessions } = useData<SessionLite[]>(
+    "all:table=attendance_sessions",
+    [],
+  );
   const [period, setPeriod] = useState("year");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [message, setMessage] = useState("");
   return (
-    <Modal title="Student profile" onClose={onClose}>
+    <Modal title="Student profile" onClose={onClose} wide>
       <div className="details-content">
-        <div className="profile-heading">
-          <StudentAvatar student={student} />
-          <div>
-            <h2>{student.full_name}</h2>
-            <p>
-              #{student.admission_number} · {student.class_name} ·{" "}
-              {student.league_name || "League unassigned"}
-            </p>
-          </div>
-        </div>
+        <StudentCard
+          student={student}
+          academy={data.overview?.settings.name || "Sincere Academy"}
+          yearName={
+            data.years.find((y) => y.id === student.academic_year_id)?.name
+          }
+          transactions={transactions}
+          records={attendance}
+          sessions={sessions}
+        />
         <Form
           onSubmit={async (f) => {
             await command("student.save", {
