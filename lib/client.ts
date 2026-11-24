@@ -68,13 +68,15 @@ export function useData<T>(requestedQuery: string | null, fallback: T) {
     }
   }, [query]);
   useEffect(() => {
-    const frame = requestAnimationFrame(() => void reload());
+    // A timer instead of requestAnimationFrame: rAF never fires in a hidden or
+    // background tab, which left the workspace stuck on its loading state.
+    const timer = setTimeout(() => void reload(), 0);
     const invalidate = () => {
       generation.current++;
     };
     window.addEventListener("star-refresh", reload);
     return () => {
-      cancelAnimationFrame(frame);
+      clearTimeout(timer);
       invalidate();
       window.removeEventListener("star-refresh", reload);
     };
