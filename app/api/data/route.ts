@@ -125,9 +125,14 @@ export async function GET(request: Request) {
       attendance_sessions: "submitted_at.desc",
       academic_years: "start_date.desc",
     };
+    // Assignment tables use a composite key and have no id column.
     query.set(
       "order",
-      sortable[table] ? sortable[table] + ",id.asc" : "id.asc",
+      table.startsWith("activity_")
+        ? "activity_id.asc"
+        : sortable[table]
+          ? sortable[table] + ",id.asc"
+          : "id.asc",
     );
     for (const field of [
       "id",
@@ -235,6 +240,33 @@ export async function POST(request: Request) {
               p_leagues: league_ids,
               p_students: student_ids,
             }),
+          },
+          token,
+        ),
+      });
+    }
+    if (action === "pin.toggle") {
+      const { activity_id } = payload as Record<string, unknown>;
+      if (typeof activity_id !== "string")
+        throw new ApiError("Invalid attendance form.");
+      return Response.json({
+        result: await supabase(
+          "/rest/v1/rpc/pin_form",
+          {
+            method: "POST",
+            body: JSON.stringify({ p_activity: activity_id }),
+          },
+          token,
+        ),
+      });
+    }
+    if (action === "attendance.submit") {
+      return Response.json({
+        result: await supabase(
+          "/rest/v1/rpc/submit_attendance",
+          {
+            method: "POST",
+            body: JSON.stringify({ p: payload }),
           },
           token,
         ),

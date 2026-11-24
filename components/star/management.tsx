@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { BrandingUpload } from "./branding";
 import { useState } from "react";
 import {
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { command, dateLabel, dateTimeLabel, useData } from "@/lib/client";
 import type { Activity, Named, Period, StudentRow, Year } from "@/lib/types";
+import { buttonVariants } from "@/components/ui/button";
 import type { WorkspaceData } from "./workspace";
 import {
   Button,
@@ -152,6 +154,18 @@ export function Management({
                     >
                       <Pin />
                     </Button>
+                  ) : null}
+                  {kind === "activity" ? (
+                    <Link
+                      className={buttonVariants({
+                        variant: "outline",
+                        size: "sm",
+                      })}
+                      href="/take-attendance"
+                    >
+                      <CalendarDays />
+                      Take attendance
+                    </Link>
                   ) : null}
                   <Button
                     variant="outline"

@@ -12,6 +12,7 @@ import {
   dateLabel,
   dateTimeLabel,
   queryString,
+  timeLabel,
   useData,
 } from "@/lib/client";
 import type { AttendanceRecord, AttendanceSession } from "@/lib/types";
@@ -27,7 +28,6 @@ import {
   Pager,
   Panel,
   SearchBox,
-  Tag,
 } from "./ui";
 export function AttendanceRecords({ data }: { data: WorkspaceData }) {
   const [status, setStatus] = useState("active");
@@ -214,7 +214,10 @@ export function AttendanceRecords({ data }: { data: WorkspaceData }) {
                         Locked snapshot
                       </small>
                     </td>
-                    <td>{dateLabel(s.attendance_date)}</td>
+                    <td>
+                      {dateLabel(s.attendance_date)}
+                      {s.attendance_time ? ` · ${timeLabel(s.attendance_time)}` : ""}
+                    </td>
                     <td>{s.selected_classes.map((c) => c.name).join(", ")}</td>
                     <td>
                       {s.staff_name}
@@ -342,9 +345,8 @@ function SessionDetails({
     "all:table=staff_profiles",
     [],
   );
-  const [page, setPage] = useState(0);
   const { data: records, error } = useData<AttendanceRecord[]>(
-    `table=attendance_records&session_id=${session.id}&offset=${page * 100}`,
+    `all:table=attendance_records&session_id=${session.id}`,
     [],
   );
   const { data: remarks } = useData<{ id: string; content: string }[]>(
@@ -360,6 +362,38 @@ function SessionDetails({
       staff_id: string;
     }[]
   >(`all:table=remark_history&session_id=${session.id}`, []);
+  const presentRecords = records.filter((r) => r.present);
+  const absentRecords = records.filter((r) => !r.present);
+  const report = [
+    session.institution_name,
+    session.activity_name,
+    `Date: ${dateLabel(session.attendance_date)}${session.attendance_time ? ` at ${timeLabel(session.attendance_time)}` : ""}`,
+    `Classes: ${session.selected_classes.map((c) => c.name).join(", ")}`,
+    `Submitted by: ${session.staff_name} · ${dateTimeLabel(session.submitted_at, timezone)}`,
+    `Stars: ${
+      session.stars_awarded === false
+        ? "not awarded for this session"
+        : `${session.reward_snapshot} per present student`
+    }`,
+    `Students: ${records.length} · Present: ${presentRecords.length} · Absent: ${absentRecords.length}`,
+    "",
+    `Present (${presentRecords.length})`,
+    presentRecords.length
+      ? presentRecords
+          .map((r) => `${r.full_name} (#${r.admission_number}, ${r.class_name})`)
+          .join("\n")
+      : "None",
+    "",
+    `Absent (${absentRecords.length})`,
+    absentRecords.length
+      ? absentRecords
+          .map((r) => `${r.full_name} (#${r.admission_number}, ${r.class_name})`)
+          .join("\n")
+      : "None",
+    "",
+    `Original remarks: ${session.original_remarks || "None"}`,
+    `Current remark: ${remarks[0]?.content || "None"}`,
+  ].join("\n");
   return (
     <Modal
       title={`${session.activity_name} · ${dateLabel(session.attendance_date)}`}
@@ -379,36 +413,7 @@ function SessionDetails({
           <Download size={14} />
           Download original report
         </DownloadLink>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Class</th>
-                <th>Status</th>
-                <th>Stars</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <strong>{r.full_name}</strong>
-                    <small>#{r.admission_number}</small>
-                  </td>
-                  <td>{r.class_name}</td>
-                  <td>
-                    <Tag tone={r.present ? "green" : "gray"}>
-                      {r.present ? "Present" : "Absent"}
-                    </Tag>
-                  </td>
-                  <td>{r.stars}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <Pager page={page} onChange={setPage} count={records.length} />
+        <pre className="attendance-report">{report}</pre>
         <Form
           submit="Update remark"
           onSubmit={async (f) => {

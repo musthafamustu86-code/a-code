@@ -14,6 +14,9 @@ const Students = dynamic(() =>
 const Register = dynamic(() =>
   import("./register").then((module) => module.Register),
 );
+const AttendanceSheet = dynamic(() =>
+  import("./attendance-sheet").then((module) => module.AttendanceSheet),
+);
 const AttendanceRecords = dynamic(() =>
   import("./records").then((module) => module.AttendanceRecords),
 );
@@ -50,7 +53,13 @@ export interface WorkspaceData {
   leagues: Named[];
   overview: Overview | null;
 }
-export function Workspace({ section }: { section: string }) {
+export function Workspace({
+  section,
+  sheet,
+}: {
+  section: string;
+  sheet?: { id: string };
+}) {
   const activities = useData<Activity[]>("all:table=activities", []),
     years = useData<Year[]>("all:table=academic_years", []),
     classes = useData<Named[]>("all:table=classes", []),
@@ -80,7 +89,11 @@ export function Workspace({ section }: { section: string }) {
       body = <Students data={data} />;
       break;
     case "/take-attendance":
-      body = <Register data={data} />;
+      body = sheet ? (
+        <AttendanceSheet data={data} {...sheet} />
+      ) : (
+        <Register data={data} />
+      );
       break;
     case "/attendance-records":
       body = <AttendanceRecords data={data} />;

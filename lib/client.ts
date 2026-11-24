@@ -111,6 +111,14 @@ export const dateTimeLabel = (date: string, timezone = "Asia/Kolkata") =>
     minute: "2-digit",
     timeZone: timezone,
   });
+export const timeLabel = (time?: string | null) =>
+  time
+    ? new Date(`1970-01-01T${time}Z`).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      })
+    : "";
 export const initials = (name: string) =>
   name
     .split(" ")

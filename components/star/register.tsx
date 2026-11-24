@@ -1,28 +1,31 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { ClipboardList, Pin } from "lucide-react";
-import { allPages, command, queryString, useData } from "@/lib/client";
-import type { StudentRow } from "@/lib/types";
+import Link from "next/link";
+import { useState } from "react";
+import { CalendarDays, ClipboardList, Pin } from "lucide-react";
+import { command, useData } from "@/lib/client";
+import { buttonVariants } from "@/components/ui/button";
 import type { WorkspaceData } from "./workspace";
-import { Button, ErrorNotice, Field, Modal, Panel, SearchBox } from "./ui";
+import { Empty, ErrorNotice, Panel } from "./ui";
+
 // Each staff member can pin this many attendance forms for quick access.
 const PIN_LIMIT = 5;
+
 export function Register({ data }: { data: WorkspaceData }) {
-  const [activity, setActivity] = useState(""),
-    [date, setDate] = useState(data.overview!.today),
-    [classes, setClasses] = useState<string[]>([]),
-    [roster, setRoster] = useState<StudentRow[] | null>(null),
-    [absent, setAbsent] = useState<Set<string>>(new Set()),
-    [search, setSearch] = useState(""),
-    [remarks, setRemarks] = useState(""),
-    [confirm, setConfirm] = useState(false),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [notice, setNotice] = useState(""),
-    [request, setRequest] = useState("");
   const [pinError, setPinError] = useState("");
   const pins = useData<{ activity_id: string; position: number }[]>(
     "table=pinned_forms",
+    [],
+  );
+  const classLinks = useData<{ activity_id: string; class_id: string }[]>(
+    "all:table=activity_classes",
+    [],
+  );
+  const leagueLinks = useData<{ activity_id: string; league_id: string }[]>(
+    "all:table=activity_leagues",
+    [],
+  );
+  const studentLinks = useData<{ activity_id: string; student_id: string }[]>(
+    "all:table=activity_students",
     [],
   );
   const pinned = (id: string) =>
@@ -33,6 +36,24 @@ export function Register({ data }: { data: WorkspaceData }) {
       (a, b) => pinned(a.id) - pinned(b.id) || a.name.localeCompare(b.name),
     );
   const pinnedForms = activities.filter((a) => pinned(a.id) <= PIN_LIMIT);
+  const targets = (id: string) => {
+    const leagues = data.leagues
+      .filter((l) => leagueLinks.data.some((r) => r.activity_id === id && r.league_id === l.id))
+      .map((l) => l.name);
+    const classes = classLinks.data.filter((r) => r.activity_id === id).length;
+    const students = studentLinks.data.filter(
+      (r) => r.activity_id === id,
+    ).length;
+    return [
+      leagues.length
+        ? `${leagues.join(", ")} (${leagues.length === 1 ? "league" : "leagues"})`
+        : "",
+      classes ? `${classes} ${classes === 1 ? "class" : "classes"}` : "",
+      students ? `${students} ${students === 1 ? "student" : "students"}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  };
   async function togglePin(id: string) {
     setPinError("");
     try {
@@ -41,288 +62,96 @@ export function Register({ data }: { data: WorkspaceData }) {
       setPinError(e instanceof Error ? e.message : "Could not update the pin.");
     }
   }
-  const form = activities.find((a) => a.id === activity),
-    stars = form?.reward_enabled ? form.reward : 0,
-    present = (roster?.length || 0) - absent.size;
-  // Saved class assignment of the chosen form, used to preselect the classes.
-  const assignment = useData<{ class_id: string }[]>(
-    activity ? `table=activity_classes&activity_id=${activity}` : null,
-    [],
-  );
-  const applied = useRef("");
-  useEffect(() => {
-    if (!activity || assignment.loading || applied.current === activity) return;
-    applied.current = activity;
-    setClasses(assignment.data.map((row) => row.class_id));
-    setRoster(null);
-  }, [activity, assignment.loading, assignment.data]);
-  function reset() {
-    setRoster(null);
-    setNotice("");
-    setError("");
-  }
-  async function load() {
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const pages = await Promise.all(
-        classes.map((class_id) =>
-          allPages<StudentRow>(
-            queryString({
-              table: "student_directory",
-              class_id,
-              active: "true",
-              academic_year_id: data.overview?.active_year,
-            }),
-          ),
-        ),
-      );
-      setRoster(
-        pages
-          .flat()
-          .filter((r) => !["graduated", "left"].includes(r.progression))
-          .sort((a, b) => a.full_name.localeCompare(b.full_name)),
-      );
-      setAbsent(new Set());
-      setRequest(crypto.randomUUID());
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function submit() {
-    if (!roster) return;
-    setBusy(true);
-    try {
-      await command("attendance.submit", {
-        activity_id: activity,
-        date,
-        classes,
-        remarks,
-        expected_reward: stars,
-        request_id: request,
-        records: roster.map((s) => ({
-          student_id: s.id,
-          present: !absent.has(s.id),
-        })),
-      });
-      setNotice(
-        "Attendance submitted. The locked register is available in Attendance records.",
-      );
-      setRoster(null);
-      setRemarks("");
-      setError("");
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setConfirm(false);
-      setBusy(false);
-    }
-  }
   return (
     <Panel>
       <div className="form">
-        <fieldset disabled={busy}>
-          <fieldset className="formpick">
-            <legend>
-              Attendance form
-              {activities.length ? (
-                <span className="formpick-count">
-                  {activities.length} available · {pinnedForms.length}/
-                  {PIN_LIMIT} pinned
-                </span>
-              ) : null}
-            </legend>
+        <p className="text-xs text-[var(--soft)]">
+          Open a form to choose the session date and time, then mark attendance.
+        </p>
+        <fieldset className="formpick">
+          <legend>
+            Attendance forms
             {activities.length ? (
-              <div className="formpick-grid">
-                {activities.map((a) => {
-                  const isPinned = pinned(a.id) <= PIN_LIMIT;
-                  return (
-                    <div
-                      key={a.id}
-                      className={
-                        "formpick-card" + (activity === a.id ? " active" : "")
-                      }
-                    >
-                      <button
-                        type="button"
-                        className="formpick-name"
-                        aria-pressed={activity === a.id}
-                        onClick={() => {
-                          setActivity(a.id);
-                          reset();
-                        }}
-                      >
+              <span className="formpick-count">
+                {activities.length} available · {pinnedForms.length}/
+                {PIN_LIMIT} pinned
+              </span>
+            ) : null}
+          </legend>
+          {activities.length ? (
+            <div className="formpick-grid">
+              {activities.map((a) => {
+                const isPinned = pinned(a.id) <= PIN_LIMIT;
+                const assigned = targets(a.id);
+                return (
+                  <div key={a.id} className="formpick-card">
+                    <div className="formpick-name">
+                      <span>
                         <ClipboardList size={15} />
-                        <span>{a.name}</span>
-                        <small>
-                          {a.reward_enabled
-                            ? `${a.reward} ${a.reward === 1 ? "star" : "stars"} per present student`
-                            : "Star rewards off"}
-                        </small>
-                      </button>
-                      <button
-                        type="button"
-                        className="formpick-pin"
-                        aria-pressed={isPinned}
-                        aria-label={`${isPinned ? "Unpin" : "Pin"} ${a.name}`}
-                        title={
-                          isPinned
-                            ? "Unpin this form"
-                            : pinnedForms.length >= PIN_LIMIT
-                              ? `Unpin a form first — ${PIN_LIMIT} pins are already in use.`
-                              : `Pin this form (up to ${PIN_LIMIT})`
-                        }
-                        disabled={!isPinned && pinnedForms.length >= PIN_LIMIT}
-                        onClick={() => void togglePin(a.id)}
-                      >
-                        <Pin size={14} />
-                      </button>
+                        {a.name}
+                      </span>
+                      <small>
+                        {a.reward_enabled
+                          ? `${a.reward} ${a.reward === 1 ? "star" : "stars"} per present student`
+                          : "Star rewards off"}
+                      </small>
+                      <small className="formpick-targets">
+                        {assigned ||
+                          "No saved assignment — choose classes on the attendance page."}
+                      </small>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-xs text-[var(--soft)]">
-                No attendance forms yet. Create one in Attendance forms and it
-                will appear here.
-              </p>
-            )}
-          </fieldset>
-          <ErrorNotice message={pinError} />
-          {assignment.data.length ? (
-            <p className="text-xs text-[var(--soft)]">
-              This form is assigned to {assignment.data.length}{" "}
-              {assignment.data.length === 1 ? "class" : "classes"}, already
-              selected below. Adjust the classes if this session is different.
-            </p>
-          ) : null}
-          <Field label="Session date">
-            <input
-              type="date"
-              value={date}
-              max={data.overview!.today}
-              onChange={(e) => {
-                setDate(e.target.value);
-                reset();
-              }}
-            />
-          </Field>
-          <fieldset className="classchips">
-            <legend>Classes</legend>
-            {data.classes
-              .filter((c) => c.active)
-              .map((c) => (
-                <label key={c.id}>
-                  <input
-                    type="checkbox"
-                    checked={classes.includes(c.id)}
-                    onChange={(e) => {
-                      setClasses(
-                        e.target.checked
-                          ? [...classes, c.id]
-                          : classes.filter((id) => id !== c.id),
-                      );
-                      reset();
-                    }}
-                  />
-                  {c.name}
-                </label>
-              ))}
-          </fieldset>
-          <Button
-            disabled={
-              !form || !classes.length || !date || !data.overview?.active_year
-            }
-            onClick={load}
-          >
-            Load students
-          </Button>
+                    <button
+                      type="button"
+                      className="formpick-pin"
+                      aria-pressed={isPinned}
+                      aria-label={`${isPinned ? "Unpin" : "Pin"} ${a.name}`}
+                      title={
+                        isPinned
+                          ? "Unpin this form"
+                          : pinnedForms.length >= PIN_LIMIT
+                            ? `Unpin a form first — ${PIN_LIMIT} pins are already in use.`
+                            : `Pin this form (up to ${PIN_LIMIT})`
+                      }
+                      disabled={!isPinned && pinnedForms.length >= PIN_LIMIT}
+                      onClick={() => void togglePin(a.id)}
+                    >
+                      <Pin size={14} />
+                    </button>
+                    <div className="formpick-actions">
+                      <Link
+                        className={buttonVariants({ size: "sm" })}
+                        href={`/take-attendance/${a.id}`}
+                      >
+                        <CalendarDays size={14} />
+                        Take attendance
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <Empty icon={ClipboardList} title="No attendance forms yet">
+              Create one in{" "}
+              <Link className="underline" href="/attendance-forms">
+                Attendance forms
+              </Link>{" "}
+              and it will appear here.
+            </Empty>
+          )}
         </fieldset>
         {!data.overview?.active_year && (
           <p>Confirm an academic year to start taking attendance.</p>
         )}
-        <ErrorNotice message={error || pins.error} />
-        {notice && <p role="status">{notice}</p>}
-        {roster && (
-          <>
-            <h2>Attendance register</h2>
-            <SearchBox value={search} onChange={setSearch} />
-            <div className="controls">
-              <Button variant="outline" onClick={() => setAbsent(new Set())}>
-                Mark all present
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setAbsent(new Set(roster.map((s) => s.id)))}
-              >
-                Mark all absent
-              </Button>
-            </div>
-            {roster
-              .filter((s) =>
-                (s.full_name + " " + s.admission_number)
-                  .toLowerCase()
-                  .includes(search.toLowerCase()),
-              )
-              .map((s) => (
-                <label className="ledgerrow" key={s.id}>
-                  <div>
-                    <b>{s.full_name}</b>
-                    <small>
-                      {s.admission_number} · {s.class_name}
-                    </small>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={!absent.has(s.id)}
-                    onChange={(e) => {
-                      const next = new Set(absent);
-                      if (e.target.checked) next.delete(s.id);
-                      else next.add(s.id);
-                      setAbsent(next);
-                    }}
-                  />
-                  {absent.has(s.id) ? "Absent" : "Present"}
-                </label>
-              ))}
-            <Field label="Staff remarks">
-              <textarea
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-              />
-            </Field>
-            <p>
-              {present} present · {absent.size} absent · {present * stars} stars
-            </p>
-            <Button disabled={!roster.length} onClick={() => setConfirm(true)}>
-              Review submission
-            </Button>
-          </>
-        )}
-        {confirm && (
-          <Modal
-            title="Confirm attendance"
-            onClose={() => {
-              if (!busy) setConfirm(false);
-            }}
-          >
-            <div className="form">
-              <p>
-                {form?.name} · {date}
-              </p>
-              <p>
-                Submit {roster?.length} marks and award {stars} stars to each of{" "}
-                {present} present students? Attendance marks will be locked.
-              </p>
-              <Button disabled={busy} onClick={submit}>
-                {busy ? "Submitting…" : "Confirm and submit"}
-              </Button>
-            </div>
-          </Modal>
-        )}
+        <ErrorNotice
+          message={
+            pinError ||
+            pins.error ||
+            classLinks.error ||
+            leagueLinks.error ||
+            studentLinks.error
+          }
+        />
       </div>
     </Panel>
   );

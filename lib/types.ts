@@ -90,11 +90,13 @@ export interface Ranking {
 export interface AttendanceSession {
   id: string;
   attendance_date: string;
+  attendance_time?: string | null;
   activity_name: string;
   activity_id: string;
   academic_year_id: string;
   selected_classes: { id: string; name: string }[];
   reward_snapshot: number;
+  stars_awarded?: boolean;
   configured_reward?: number | null;
   rewards_enabled?: boolean | null;
   staff_name: string;
