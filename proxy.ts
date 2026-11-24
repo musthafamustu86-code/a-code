@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/login") {
+    if (request.nextUrl.searchParams.has("password")) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    return NextResponse.next();
+  }
   if (
     request.nextUrl.pathname === "/" ||
     request.nextUrl.pathname.startsWith("/brand/")
@@ -47,5 +53,5 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 export const config = {
-  matcher: ["/", "/((?!api/|login|_next/|brand/|favicon.ico|icon.png).*)"],
+  matcher: ["/", "/login", "/((?!api/|login|_next/|brand/|favicon.ico|icon.png).*)"],
 };

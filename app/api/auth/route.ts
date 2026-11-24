@@ -17,9 +17,12 @@ export async function GET() {
   }
 }
 export async function POST(r: Request) {
+  const isForm = r.headers.get("content-type")?.startsWith("application/x-www-form-urlencoded") ?? false;
   try {
     checkOrigin(r);
-    const { email, password } = await r.json();
+    const fields = isForm ? Object.fromEntries(await r.formData()) : await r.json();
+    const email = typeof fields?.email === "string" ? fields.email.trim() : "";
+    const password = fields?.password;
     if (
       typeof email !== "string" ||
       !email.includes("@") ||
@@ -37,8 +40,10 @@ export async function POST(r: Request) {
       await db.auth.signOut({ scope: "local" });
       throw e;
     }
+    if (isForm) return Response.redirect(new URL("/dashboard", r.url), 303);
     return Response.json({ ok: true });
   } catch (e) {
+    if (isForm) return Response.redirect(new URL("/login#signin-failed", r.url), 303);
     return failure(e);
   }
 }

@@ -32,6 +32,8 @@ export default function Login() {
       <section className="signin-panel">
         <form
           className="signin-form"
+          method="post"
+          action="/api/auth"
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
@@ -92,13 +94,16 @@ export default function Login() {
             <i aria-hidden="true" />
           </label>
 
+          {!error && <p id="signin-failed" role="alert" className="signin-error signin-fallback-error">
+            Unable to sign in. Check your email and password and try again.
+          </p>}
           {error ? (
             <p role="alert" className="signin-error">
               {error}
             </p>
           ) : null}
 
-          <button className="signin-submit" disabled={busy}>
+          <button type="submit" className="signin-submit" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
             <ArrowRight size={17} aria-hidden="true" />
           </button>

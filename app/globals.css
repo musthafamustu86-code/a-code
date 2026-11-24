@@ -464,6 +464,7 @@ p[role="alert"] {
 }
 .formpick-card {
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   background: var(--card);
   border: 1px solid var(--border);
@@ -486,7 +487,7 @@ p[role="alert"] {
   color: var(--foreground);
   text-align: left;
   font-size: 13px;
-  cursor: pointer;
+  cursor: default;
 }
 .formpick-name svg {
   color: var(--purple);
@@ -524,6 +525,29 @@ p[role="alert"] {
 .formpick-pin:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+.formpick-targets {
+  color: var(--soft);
+}
+.formpick-actions {
+  flex-basis: 100%;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+.formpick-actions a,
+.formpick-actions button {
+  width: 100%;
+}
+.attendance-report {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
 }
 .pinrow {
   display: flex;
@@ -669,3 +693,4 @@ button:active:not(:disabled) {
     scroll-behavior: auto !important;
   }
 }
+.signin-fallback-error:not(:target) { display: none; }
