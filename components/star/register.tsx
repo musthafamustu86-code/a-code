@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Pin } from "lucide-react";
 import { allPages, command, queryString, useData } from "@/lib/client";
 import type { StudentRow } from "@/lib/types";
 import type { WorkspaceData } from "./workspace";
@@ -28,9 +29,22 @@ export function Register({ data }: { data: WorkspaceData }) {
     .sort(
       (a, b) => pinned(a.id) - pinned(b.id) || a.name.localeCompare(b.name),
     );
+  const pinnedForms = activities.filter((a) => pinned(a.id) < 9);
   const form = activities.find((a) => a.id === activity),
     stars = form?.reward_enabled ? form.reward : 0,
     present = (roster?.length || 0) - absent.size;
+  // Saved class assignment of the chosen form, used to preselect the classes.
+  const assignment = useData<{ class_id: string }[]>(
+    activity ? `table=activity_classes&activity_id=${activity}` : null,
+    [],
+  );
+  const applied = useRef("");
+  useEffect(() => {
+    if (!activity || assignment.loading || applied.current === activity) return;
+    applied.current = activity;
+    setClasses(assignment.data.map((row) => row.class_id));
+    setRoster(null);
+  }, [activity, assignment.loading, assignment.data]);
   function reset() {
     setRoster(null);
     setNotice("");
@@ -100,6 +114,25 @@ export function Register({ data }: { data: WorkspaceData }) {
     <Panel>
       <div className="form">
         <fieldset disabled={busy}>
+          {pinnedForms.length ? (
+            <div className="pinrow">
+              <span className="text-xs text-[var(--soft)]">Pinned forms</span>
+              {pinnedForms.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className={"chip" + (activity === a.id ? " active" : "")}
+                  onClick={() => {
+                    setActivity(a.id);
+                    reset();
+                  }}
+                >
+                  <Pin size={12} />
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <Field label="Attendance form">
             <select
               value={activity}
@@ -117,6 +150,13 @@ export function Register({ data }: { data: WorkspaceData }) {
               ))}
             </select>
           </Field>
+          {assignment.data.length ? (
+            <p className="text-xs text-[var(--soft)]">
+              This form is assigned to {assignment.data.length}{" "}
+              {assignment.data.length === 1 ? "class" : "classes"}, already
+              selected below. Adjust the classes if this session is different.
+            </p>
+          ) : null}
           <Field label="Session date">
             <input
               type="date"

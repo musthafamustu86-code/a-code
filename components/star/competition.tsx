@@ -39,7 +39,12 @@ export function Leaderboard({ data }: { data: WorkspaceData }) {
           <option value="asc">Lowest stars first</option>
         </select>
       </div>
-      <StudentRankings calendar={calendar} search={search} reverse={reverse} />
+      <StudentRankings
+        calendar={calendar}
+        search={search}
+        reverse={reverse}
+        leagues={data.leagues}
+      />
     </>
   );
 }
@@ -48,16 +53,39 @@ function StudentRankings({
   calendar,
   search,
   reverse,
+  leagues,
 }: {
   calendar: ReturnType<typeof useAcademicCalendar>;
   search: string;
   reverse: boolean;
+  leagues: WorkspaceData["leagues"];
 }) {
   const [pager, setPager] = useState({ key: "", page: 0 });
   const [flash, setFlash] = useState("");
   const leader = useRef("");
   const reduced = useReducedMotion();
-  const filterKey = JSON.stringify([calendar.filterKey, search, reverse]);
+  // Empty selection rotates the board through every league, 15 seconds each.
+  const [pick, setPick] = useState("");
+  const [tick, setTick] = useState(0);
+  const boards = leagues.filter((league) => league.active);
+  const rotating = !pick && boards.length > 1;
+  const league = pick
+    ? leagues.find((l) => l.id === pick)
+    : boards.length
+      ? boards[tick % boards.length]
+      : undefined;
+  const leagueId = league?.id || "";
+  useEffect(() => {
+    if (!rotating) return;
+    const timer = window.setInterval(() => setTick((t) => t + 1), 15000);
+    return () => window.clearInterval(timer);
+  }, [rotating, boards.length]);
+  const filterKey = JSON.stringify([
+    calendar.filterKey,
+    search,
+    reverse,
+    leagueId,
+  ]);
   const page = pager.key === filterKey ? pager.page : 0;
   const setPage = (next: number) => setPager({ key: filterKey, page: next });
   const allTime = calendar.kind === "all";
@@ -72,6 +100,7 @@ function StudentRankings({
           ...calendar.range,
           search,
           direction: reverse ? "asc" : "desc",
+          league: leagueId,
           offset: page * 100,
         })
       : null;
@@ -103,6 +132,48 @@ function StudentRankings({
   }, [flash]);
   return (
     <>
+      <div className="toolbar">
+        <select
+          aria-label="Leaderboard league"
+          value={pick}
+          onChange={(event) => {
+            setPick(event.target.value);
+            setTick(0);
+          }}
+        >
+          <option value="">
+            {rotating || boards.length > 1
+              ? "Rotate leagues (every 15 seconds)"
+              : "All leagues"}
+          </option>
+          {boards.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+        {boards.length > 1 ? (
+          <div className="boarddots" role="tablist" aria-label="League boards">
+            {boards.map((l) => (
+              <button
+                key={l.id}
+                role="tab"
+                aria-selected={l.id === leagueId}
+                aria-label={l.name}
+                onClick={() => {
+                  setPick(l.id);
+                  setTick(0);
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
+        {rotating ? (
+          <span className="text-xs text-[var(--soft)]">
+            Showing {league?.name} · switches league every 15 seconds
+          </span>
+        ) : null}
+      </div>
       <ErrorNotice message={error} />
       <Panel>
         <div className="panel-heading">
@@ -110,7 +181,10 @@ function StudentRankings({
             <Trophy className="gold-text" size={21} />
             Individual leaderboard
           </h2>
-          <Tag>Ties share a rank</Tag>
+          <span className="inline-flex gap-2 items-center">
+            <Tag>{league?.name || "All leagues"}</Tag>
+            <Tag>Ties share a rank</Tag>
+          </span>
         </div>
         {rows.length ? (
           <div className="table-wrap">

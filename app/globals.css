@@ -442,6 +442,55 @@ p[role="alert"] {
 .ledgerrow input[type="checkbox"] {
   width: auto;
 }
+.pinrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 12px;
+}
+.chip.active {
+  border-color: var(--purple);
+  background: var(--muted);
+  font-weight: 600;
+}
+.boarddots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.boarddots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--border);
+}
+.boarddots button[aria-selected="true"] {
+  width: 20px;
+  background: var(--purple);
+}
+.student-picker {
+  max-height: 240px;
+  overflow: auto;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
 .controls button {
   padding: 6px;
 }

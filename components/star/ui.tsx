@@ -304,10 +304,12 @@ export function Form({
   children,
   onSubmit,
   submit = "Save changes",
+  disabled = false,
 }: {
   children: ReactNode;
   onSubmit: (data: FormData) => Promise<void>;
   submit?: string;
+  disabled?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -331,7 +333,7 @@ export function Form({
       {children}
       <ErrorNotice message={error} />
       <div className="form-footer">
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || disabled}>
           {busy ? "Saving…" : submit}
         </Button>
       </div>

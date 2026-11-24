@@ -9,6 +9,9 @@ import {
   Pencil,
   CalendarDays,
   CheckCheck,
+  Layers,
+  CircleCheck,
+  CircleX,
 } from "lucide-react";
 import { command, dateLabel, dateTimeLabel, useData } from "@/lib/client";
 import type { Activity, Named, Period, StudentRow, Year } from "@/lib/types";
@@ -22,6 +25,7 @@ import {
   Modal,
   Pager,
   Panel,
+  SearchBox,
   Tag,
 } from "./ui";
 export function Management({
@@ -33,12 +37,49 @@ export function Management({
 }) {
   const [editing, setEditing] = useState<Named | Activity | null>(null);
   const [create, setCreate] = useState(false);
+  const [assigning, setAssigning] = useState<Named | null>(null);
   const [error, setError] = useState("");
+  const [classPick, setClassPick] = useState<string[] | null>(null);
+  const [leaguePick, setLeaguePick] = useState<string[] | null>(null);
+  const [studentPick, setStudentPick] = useState<string[] | null>(null);
+  const [studentSearch, setStudentSearch] = useState("");
   const { data: pins } = useData<{ id: string; activity_id: string }[]>(
     "table=pinned_forms",
     [],
   );
   const items = kind === "league" ? data.leagues : data.activities;
+  const formId =
+    kind === "activity" && editing && "reward" in editing ? editing.id : "";
+  const { data: assignedClasses } = useData<{ class_id: string }[]>(
+    formId ? `table=activity_classes&activity_id=${formId}` : null,
+    [],
+  );
+  const { data: assignedLeagues } = useData<{ league_id: string }[]>(
+    formId ? `table=activity_leagues&activity_id=${formId}` : null,
+    [],
+  );
+  const { data: assignedStudents } = useData<{ student_id: string }[]>(
+    formId ? `table=activity_students&activity_id=${formId}` : null,
+    [],
+  );
+  const roster = useData<StudentRow[]>(
+    kind === "activity" && data.overview?.active_year
+      ? `all:table=student_directory&academic_year_id=${data.overview.active_year}&active=true`
+      : null,
+    [],
+  );
+  const selectedClasses = classPick ?? assignedClasses.map((r) => r.class_id);
+  const selectedLeagues = leaguePick ?? assignedLeagues.map((r) => r.league_id);
+  const selectedStudents =
+    studentPick ?? assignedStudents.map((r) => r.student_id);
+  const openForm = (item: Named | Activity | null) => {
+    setEditing(item);
+    setClassPick(null);
+    setLeaguePick(null);
+    setStudentPick(null);
+    setStudentSearch("");
+    setCreate(true);
+  };
   return (
     <>
       <div className="toolbar">
@@ -47,13 +88,7 @@ export function Management({
             ? "League memberships are specific to each academic year."
             : "Your pinned forms appear first when taking attendance. Pin up to 8."}
         </span>
-        <Button
-          className="ml-auto"
-          onClick={() => {
-            setEditing(null);
-            setCreate(true);
-          }}
-        >
+        <Button className="ml-auto" onClick={() => openForm(null)}>
           <Plus />
           Create {kind === "league" ? "league" : "attendance form"}
         </Button>
@@ -86,6 +121,16 @@ export function Management({
                   {item.active ? "Active" : "Archived"}
                 </Tag>
                 <div>
+                  {kind === "league" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAssigning(item)}
+                    >
+                      <Layers />
+                      Classes
+                    </Button>
+                  ) : null}
                   {kind === "activity" ? (
                     <Button
                       size="icon-sm"
@@ -111,10 +156,7 @@ export function Management({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      setEditing(item);
-                      setCreate(true);
-                    }}
+                    onClick={() => openForm(item)}
                   >
                     <Pencil />
                     Edit
@@ -144,7 +186,7 @@ export function Management({
         >
           <Form
             onSubmit={async (f) => {
-              await command(`${kind}.save`, {
+              const saved = (await command(`${kind}.save`, {
                 id: editing?.id,
                 name: f.get("name"),
                 description: f.get("description"),
@@ -152,7 +194,17 @@ export function Management({
                 color: f.get("color"),
                 reward: Number(f.get("reward")),
                 reward_enabled: f.get("reward_enabled") === "on",
-              });
+              })) as unknown as { id?: string };
+              if (kind === "activity" && saved?.id)
+                await command("activity.targets", {
+                  activity_id: saved.id,
+                  class_ids: selectedClasses,
+                  league_ids: selectedLeagues,
+                  student_ids: selectedStudents,
+                });
+              setClassPick(null);
+              setLeaguePick(null);
+              setStudentPick(null);
               setCreate(false);
             }}
           >
@@ -205,6 +257,93 @@ export function Management({
                   />
                   Enable star rewards
                 </label>
+                <div className="notice">
+                  <span>
+                    Assign who attends this form. Classes apply directly,
+                    leagues apply through their class mapping in Leagues →
+                    Classes, and individual students bring in their class. The
+                    three can be combined; leave all empty to choose classes
+                    while taking attendance.
+                  </span>
+                </div>
+                <fieldset className="classchips">
+                  <legend>Classes</legend>
+                  {data.classes
+                    .filter((c) => c.active)
+                    .map((c) => (
+                      <label key={c.id}>
+                        <input
+                          type="checkbox"
+                          checked={selectedClasses.includes(c.id)}
+                          onChange={(e) =>
+                            setClassPick(
+                              e.target.checked
+                                ? [...selectedClasses, c.id]
+                                : selectedClasses.filter((id) => id !== c.id),
+                            )
+                          }
+                        />
+                        {c.name}
+                      </label>
+                    ))}
+                </fieldset>
+                <fieldset className="classchips">
+                  <legend>Leagues</legend>
+                  {data.leagues
+                    .filter((l) => l.active)
+                    .map((l) => (
+                      <label key={l.id}>
+                        <input
+                          type="checkbox"
+                          checked={selectedLeagues.includes(l.id)}
+                          onChange={(e) =>
+                            setLeaguePick(
+                              e.target.checked
+                                ? [...selectedLeagues, l.id]
+                                : selectedLeagues.filter((id) => id !== l.id),
+                            )
+                          }
+                        />
+                        {l.name}
+                      </label>
+                    ))}
+                </fieldset>
+                <Field label={`Individual students (${selectedStudents.length} selected)`}>
+                  <SearchBox value={studentSearch} onChange={setStudentSearch} />
+                  <div className="student-picker">
+                    {roster.data
+                      .filter((s) =>
+                        (s.full_name + " " + s.admission_number)
+                          .toLowerCase()
+                          .includes(studentSearch.toLowerCase()),
+                      )
+                      .map((s) => (
+                        <label key={s.id} className="check-label">
+                          <input
+                            type="checkbox"
+                            checked={selectedStudents.includes(s.id)}
+                            onChange={(e) =>
+                              setStudentPick(
+                                e.target.checked
+                                  ? [...selectedStudents, s.id]
+                                  : selectedStudents.filter(
+                                      (id) => id !== s.id,
+                                    ),
+                              )
+                            }
+                          />
+                          {s.full_name} · {s.class_name}
+                        </label>
+                      ))}
+                    {!roster.data.length ? (
+                      <p className="text-xs text-[var(--soft)]">
+                        {roster.loading
+                          ? "Loading students…"
+                          : "No active students in the active academic year."}
+                      </p>
+                    ) : null}
+                  </div>
+                </Field>
               </>
             )}
             <label className="check-label">
@@ -221,12 +360,154 @@ export function Management({
                 ? "Current academic-year memberships remain unchanged."
                 : "Previously submitted attendance keeps its original reward configuration."}
             </div>
-          </Form>
+                    </Form>
         </Modal>
+      ) : null}
+      {assigning ? (
+        <LeagueClasses
+          league={assigning}
+          data={data}
+          onClose={() => setAssigning(null)}
+        />
       ) : null}
     </>
   );
 }
+
+type ClassSummary = {
+  class_id: string;
+  class: string;
+  ok: boolean;
+  detached?: boolean;
+  students?: number;
+  message: string;
+};
+
+function LeagueClasses({
+  league,
+  data,
+  onClose,
+}: {
+  league: Named;
+  data: WorkspaceData;
+  onClose: () => void;
+}) {
+  const openYears = data.years.filter((y) => y.status !== "closed");
+  const [year, setYear] = useState(
+    data.years.find((y) => y.status === "active")?.id ||
+      data.years.find((y) => y.status === "draft")?.id ||
+      "",
+  );
+  const { data: mappings } = useData<
+    { class_id: string; league_id: string }[]
+  >(year ? `table=class_leagues&academic_year_id=${year}` : null, []);
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const [report, setReport] = useState<ClassSummary[]>([]);
+  const selected =
+    picked ??
+    mappings.filter((m) => m.league_id === league.id).map((m) => m.class_id);
+  const otherLeague = (classId: string) => {
+    const other = mappings.find(
+      (m) => m.class_id === classId && m.league_id !== league.id,
+    );
+    return other
+      ? data.leagues.find((l) => l.id === other.league_id)?.name || "another league"
+      : "";
+  };
+  return (
+    <Modal title={`${league.name} · classes`} onClose={onClose}>
+      <Form
+        submit="Save class assignments"
+        disabled={!year}
+        onSubmit={async () => {
+          const result = (await command("league.classes", {
+            academic_year_id: year,
+            league_id: league.id,
+            class_ids: selected,
+          })) as unknown as { summary?: ClassSummary[] };
+          setPicked(null);
+          setReport(result.summary ?? []);
+        }}
+      >
+        <div className="notice">
+          A league covers one or more classes. Students in a selected class join
+          this league for the chosen year, including students already enrolled.
+        </div>
+        {report.length ? (
+          <div>
+            <p className="section-description">
+              {report.filter((r) => r.ok).length} succeeded
+              {report.some((r) => !r.ok)
+                ? ` · ${report.filter((r) => !r.ok).length} failed`
+                : ""}
+            </p>
+            {report.map((r) => (
+              <div
+                key={r.class_id}
+                className={r.ok ? "notice" : "notice error"}
+                role={r.ok ? "status" : "alert"}
+              >
+                {r.ok ? <CircleCheck size={15} /> : <CircleX size={15} />}
+                <span>
+                  <strong>{r.class}</strong> — {r.message}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {openYears.length ? (
+          <Field label="Academic year">
+            <select
+              value={year}
+              onChange={(e) => {
+                setYear(e.target.value);
+                setPicked(null);
+                setReport([]);
+              }}
+            >
+              {openYears.map((y) => (
+                <option key={y.id} value={y.id}>
+                  {y.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <div className="notice">
+            No open academic year yet, so there are no classes to map. Start one
+            in Academic years first.
+          </div>
+        )}
+        {data.classes
+          .filter((c) => c.active)
+          .map((c) => {
+            const other = otherLeague(c.id);
+            return (
+              <label key={c.id} className="check-label">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(c.id)}
+                  onChange={(e) => {
+                    setReport([]);
+                    setPicked(
+                      e.target.checked
+                        ? [...selected, c.id]
+                        : selected.filter((id) => id !== c.id),
+                    );
+                  }}
+                />
+                {c.name}
+                {other && !selected.includes(c.id)
+                  ? ` · currently in ${other}`
+                  : ""}
+              </label>
+            );
+          })}
+      </Form>
+    </Modal>
+  );
+}
+
 export function AcademicYears({ data }: { data: WorkspaceData }) {
   const [creating, setCreating] = useState(false);
   const [review, setReview] = useState<Year | null>(null);
