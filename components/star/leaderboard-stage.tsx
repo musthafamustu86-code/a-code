@@ -13,7 +13,7 @@ import {
 import { queryString, useData } from "@/lib/client";
 import type { Ranking } from "@/lib/types";
 
-const ROTATE_MS = 15000;
+const ROTATE_MS = 20000;
 const STAR_STEP = 110;
 const EMPTY: Ranking[] = [];
 
@@ -59,7 +59,7 @@ export function LeaderboardStage({
   const current = total ? index % total : 0;
   const report = useCallback((text: string) => setStatus(text), []);
 
-  // A league board rolls over to the next league every 15 seconds.
+  // A league board rolls over to the next league every 20 seconds.
   useEffect(() => {
     if (!auto || reduced || total < 2) return;
     const timer = window.setInterval(
