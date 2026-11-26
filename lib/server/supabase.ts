@@ -85,8 +85,18 @@ export async function supabase(
   return data;
 }
 export function checkOrigin(request: Request) {
-  if (request.headers.get("origin") !== new URL(request.url).origin)
+  // Compare the browser's Origin with the Host header rather than
+  // request.url, which Next rewrites to its canonical dev host.
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("host");
+  if (!origin || !host) throw new ApiError("Invalid request origin.", 403);
+  let source: string;
+  try {
+    source = new URL(origin).host;
+  } catch {
     throw new ApiError("Invalid request origin.", 403);
+  }
+  if (source !== host) throw new ApiError("Invalid request origin.", 403);
 }
 export function failure(e: unknown) {
   return Response.json(
