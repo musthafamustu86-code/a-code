@@ -4,9 +4,16 @@ import pg from "pg";
 // This runner targets the inspected institution database. The baseline already exists
 // there even though its original creation was not entered in migration history.
 const connectionString = process.env.SUPABASE_DB_URL;
+const projectRef = process.env.SUPABASE_PROJECT_REF;
 if (!connectionString) {
   console.error(
     "Add SUPABASE_DB_URL to .env.local using the direct PostgreSQL URI for this project.",
+  );
+  process.exit(1);
+}
+if (!projectRef) {
+  console.error(
+    "Add SUPABASE_PROJECT_REF to .env.local with this project's ref so the target can be verified.",
   );
   process.exit(1);
 }
@@ -19,7 +26,7 @@ try {
 }
 if (
   !["postgresql:", "postgres:"].includes(uri.protocol) ||
-  uri.hostname !== "db.kjmrgjvxlblgbadaxfks.supabase.co" ||
+  uri.hostname !== `db.${projectRef}.supabase.co` ||
   uri.pathname !== "/postgres" ||
   !uri.password ||
   uri.search

@@ -1,11 +1,10 @@
 # STAR SYSTEM for Sincere Academy
 
-The standalone application lives in `C:\Users\musth\Projects\my-first-app\star-system`. Open http://localhost:3000. It uses the existing academy Supabase project. Its sign-in, request authorization, application shell, weekly dashboard, attendance register and admission form were built for this workspace. Its schema baseline, reporting and several management components were adapted from the existing academy implementation so both applications can use the same database.
+This is a standalone Next.js application. Clone the repository, install its dependencies and open http://localhost:3000. It uses the existing academy Supabase project. Its sign-in, request authorization, application shell, weekly dashboard, attendance register and admission form were built for this workspace. Its schema baseline, reporting and several management components were adapted from the existing academy implementation so both applications can use the same database.
 
 ## Start locally
 
 ```powershell
-Set-Location 'C:\Users\musth\Projects\my-first-app\star-system'
 npm.cmd ci
 npm.cmd run dev
 ```
@@ -15,10 +14,11 @@ Use the existing `.env.local` on this machine. For another checkout, copy `.env.
 ## Owner setup before institutional use
 
 1. In the existing Supabase project open Authentication → Sign In / Providers. Disable **Allow new users to sign up**. Keep email/password enabled. Disable anonymous sign-in, phone, other identity providers and MFA enrollment/verification. The hosted settings endpoint reported public signup enabled during verification.
-2. Add this entry to the isolated application's `.env.local`, replacing the placeholder locally with the URL-encoded database password. Keep the value out of chat and source control.
+2. Add these entries to the isolated application's `.env.local`, replacing the placeholders with your project ref and the URL-encoded database password. Keep the values out of chat and source control.
 
    ```dotenv
-   SUPABASE_DB_URL=postgresql://postgres:<URL_ENCODED_DATABASE_PASSWORD>@db.kjmrgjvxlblgbadaxfks.supabase.co:5432/postgres
+   SUPABASE_PROJECT_REF=<PROJECT_REF>
+   SUPABASE_DB_URL=postgresql://postgres:<URL_ENCODED_DATABASE_PASSWORD>@db.<PROJECT_REF>.supabase.co:5432/postgres
    ```
 
 3. Run `npm.cmd run migrate`. The runner verifies the target, checks the existing functions before replacing them, applies pending changes in one transaction, records their versions and verifies the scheduled job. If TLS validation needs a project CA, set `NODE_EXTRA_CA_CERTS` to the path of the certificate obtained from the project's database settings. Direct connectivity to the database host is required. No database password was available during this build.
