@@ -56,6 +56,7 @@ export function StudentCard({
   transactions,
   records,
   sessions,
+  photoVersion,
 }: {
   student: StudentRow;
   academy: string;
@@ -63,6 +64,7 @@ export function StudentCard({
   transactions: Transaction[];
   records: StudentAttendanceRow[];
   sessions: SessionLite[];
+  photoVersion?: number;
 }) {
   const totalStars = transactions.reduce(
     (sum, t) => sum + Number(t.amount),
@@ -88,7 +90,7 @@ export function StudentCard({
     <>
       <section className="student-card">
         <div className="student-card-photo">
-          <StudentAvatar student={student} />
+          <StudentAvatar student={student} version={photoVersion} />
         </div>
         <div className="student-card-body">
           <small className="student-card-academy">{academy}</small>

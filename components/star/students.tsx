@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { Admission } from "./admission";
 import {
   ArrowLeft,
   ArrowUpRight,
+  Camera,
   Download,
   GraduationCap,
   Images,
@@ -43,7 +44,13 @@ import {
   SearchBox,
   Tag,
 } from "./ui";
-export function Students({ data }: { data: WorkspaceData }) {
+export function Students({
+  data,
+  student: linkedId = "",
+}: {
+  data: WorkspaceData;
+  student?: string;
+}) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(0);
@@ -62,6 +69,19 @@ export function Students({ data }: { data: WorkspaceData }) {
     yearId ? `all:table=student_directory&academic_year_id=${yearId}` : null,
     [],
   );
+  // Leaderboards link here with ?student=<id> so the profile opens directly.
+  // The id comes from the route rather than window.location, which can still
+  // hold the previous URL while Next is navigating between sections.
+  const [closedId, setClosedId] = useState("");
+  const { data: linked } = useData<StudentRow[]>(
+    linkedId ? queryString({ table: "student_directory", id: linkedId }) : null,
+    [],
+  );
+  const linkedStudent =
+    linked.find((s) => s.academic_year_id === yearId) ?? linked[0] ?? null;
+  const profile =
+    selected ??
+    (linkedId && closedId !== linkedId ? linkedStudent : null);
   const counts = new Map<string, number>();
   for (const student of directory) {
     const key = group === "class" ? student.class_id : student.league_id || "";
@@ -354,11 +374,16 @@ export function Students({ data }: { data: WorkspaceData }) {
       {modal === "import" ? (
         <ImportStudents data={data} onClose={() => setModal(null)} />
       ) : null}
-      {selected ? (
+      {profile ? (
         <StudentProfile
-          student={selected}
+          key={profile.id}
+          student={profile}
           data={data}
-          onClose={() => setSelected(null)}
+          onClose={() => {
+            setSelected(null);
+            setClosedId(linkedId);
+            if (linkedId) window.history.replaceState(null, "", "/students");
+          }}
         />
       ) : null}
     </>
@@ -584,11 +609,15 @@ function StudentProfile({
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [message, setMessage] = useState("");
+  // An upload repaints the portrait immediately, before the register reloads.
+  const [photoPath, setPhotoPath] = useState(student.photo_path ?? "");
+  const [photoVersion, setPhotoVersion] = useState(0);
   return (
     <Modal title="Student profile" onClose={onClose} wide>
       <div className="details-content">
         <StudentCard
-          student={student}
+          student={{ ...student, photo_path: photoPath }}
+          photoVersion={photoVersion}
           academy={data.overview?.settings.name || "Sincere Academy"}
           yearName={
             data.years.find((y) => y.id === student.academic_year_id)?.name
@@ -596,6 +625,13 @@ function StudentProfile({
           transactions={transactions}
           records={attendance}
           sessions={sessions}
+        />
+        <PhotoUpload
+          student={{ ...student, photo_path: photoPath }}
+          onSaved={() => {
+            setPhotoPath((path) => path || "uploaded");
+            setPhotoVersion((version) => version + 1);
+          }}
         />
         <Form
           onSubmit={async (f) => {
@@ -743,50 +779,90 @@ function StudentProfile({
             Awards recorded for this student will appear here.
           </Empty>
         )}
-        <PhotoUpload student={student} />
       </div>
     </Modal>
   );
 }
-function PhotoUpload({ student }: { student: StudentRow }) {
+function PhotoUpload({
+  student,
+  onSaved,
+}: {
+  student: StudentRow;
+  onSaved: () => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   return (
-    <div className="mt-4">
-      <Field label="Optional student photo">
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
+    <section className="profile-photo">
+      <header>
+        <h3>Student photograph</h3>
+        <span>{student.photo_path ? "Replace portrait" : "No photo yet"}</span>
+      </header>
+      <div className="profile-photo-body">
+        <p className="section-description">
+          Straightened, brightened and framed as a formal 4:5 portrait
+          automatically. JPEG, PNG or WebP, up to 5 MB.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
           disabled={busy}
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            setBusy(true);
-            try {
-              const form = new FormData();
-              form.set("student_id", student.id);
-              form.set("file", file);
-              const response = await fetch("/api/photos", {
-                method: "POST",
-                body: form,
-              });
-              const body = await response.json();
-              if (!response.ok) throw new Error(body.error);
-              setError("Photo saved.");
-              window.dispatchEvent(new Event("star-refresh"));
-            } catch (e) {
-              setError(e instanceof Error ? e.message : "Photo upload failed");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />
-      </Field>
+          onClick={() => input.current?.click()}
+        >
+          <Camera size={14} />
+          {busy
+            ? "Uploading…"
+            : student.photo_path
+              ? "Replace photo"
+              : "Add photo"}
+        </Button>
+      </div>
+      <input
+        ref={input}
+        className="profile-photo-input"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        aria-label={`Student photograph for ${student.full_name}`}
+        disabled={busy}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          setBusy(true);
+          setError("");
+          setMessage("");
+          try {
+            const form = new FormData();
+            form.set("student_id", student.id);
+            form.set("file", file);
+            const response = await fetch("/api/photos", {
+              method: "POST",
+              body: form,
+            });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.error);
+            onSaved();
+            setMessage("Photo saved as a formal portrait.");
+            window.dispatchEvent(new Event("star-refresh"));
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Photo upload failed");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      {message ? (
+        <p className="profile-photo-status" role="status">
+          {message}
+        </p>
+      ) : null}
       {error ? (
-        <p className="section-description mt-3" role="status">
+        <p className="profile-photo-status error" role="alert">
           {error}
         </p>
       ) : null}
-    </div>
+    </section>
   );
 }

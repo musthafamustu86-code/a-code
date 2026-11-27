@@ -30,8 +30,6 @@ interface StageProps {
   eyebrow?: string;
   href?: string | null;
   compact?: boolean;
-  /** Bump to refetch every pane, used by the dashboard's refresh timer. */
-  tick?: number;
 }
 
 /**
@@ -45,7 +43,6 @@ export function LeaderboardStage({
   eyebrow = "INDIVIDUAL LEADERBOARD",
   href = "/leaderboard",
   compact = false,
-  tick = 0,
 }: StageProps) {
   const boards = useMemo(
     () => leagues.filter((league) => league.active !== false),
@@ -125,7 +122,6 @@ export function LeaderboardStage({
                 reduced={!!reduced}
                 eyebrow={eyebrow}
                 href={href}
-                tick={tick}
                 onStatus={report}
               />
             </div>
@@ -198,7 +194,6 @@ function BoardPane({
   reduced,
   eyebrow,
   href,
-  tick,
   onStatus,
 }: {
   league: BoardLeague;
@@ -210,7 +205,6 @@ function BoardPane({
   reduced: boolean;
   eyebrow: string;
   href: string | null;
-  tick: number;
   onStatus: (text: string) => void;
 }) {
   const query = queryString({
@@ -219,16 +213,9 @@ function BoardPane({
     limit,
     ...params,
   });
-  const { data: rows, error, loading, reload } = useData<Ranking[]>(
-    query,
-    EMPTY,
-  );
+  const { data: rows, error, loading } = useData<Ranking[]>(query, EMPTY);
   const [counts, setCounts] = useState<number[]>([]);
   const [first, setFirst] = useState(false);
-
-  useEffect(() => {
-    if (tick) void reload();
-  }, [reload, tick]);
 
   useEffect(() => {
     if (!active) return;
@@ -331,7 +318,12 @@ function BoardPane({
             >
               <div className="lbs-rk">{row.rank}</div>
               <div className="lbs-nm">
-                {row.full_name}
+                <Link
+                  href={`/students?student=${row.id}`}
+                  tabIndex={active ? undefined : -1}
+                >
+                  {row.full_name}
+                </Link>
                 <small>{row.admission_number}</small>
               </div>
               <div className="lbs-star" aria-hidden="true">

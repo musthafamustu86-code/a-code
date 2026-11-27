@@ -91,18 +91,23 @@ export function Rewards({ data }: { data: WorkspaceData }) {
                   class_id: classId,
                 }),
               );
-              setSelected(
-                new Set(
-                  all
-                    .filter(
-                      (s) => !["graduated", "left"].includes(s.progression),
-                    )
-                    .map((s) => s.id),
-                ),
-              );
+              const ids = all
+                .filter(
+                  (s) => !["graduated", "left"].includes(s.progression),
+                )
+                .map((s) => s.id);
+              setSelected((prev) => {
+                const next = new Set(prev);
+                const everyPicked =
+                  ids.length > 0 && ids.every((id) => prev.has(id));
+                ids.forEach((id) =>
+                  everyPicked ? next.delete(id) : next.add(id),
+                );
+                return next;
+              });
             } catch (e) {
               setError(
-                e instanceof Error ? e.message : "Could not select class",
+                e instanceof Error ? e.message : "Could not update selection",
               );
             }
           }}

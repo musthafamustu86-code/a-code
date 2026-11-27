@@ -6,16 +6,18 @@ import type { StudentRow } from "@/lib/types";
 import { Button, Empty, ErrorNotice, Field, Modal, Tag } from "./ui";
 export function StudentAvatar({
   student,
+  version,
 }: {
   student: Pick<StudentRow, "id" | "full_name" | "photo_path">;
+  version?: number;
 }) {
   return student.photo_path ? (
     <Image
       className="avatar object-cover"
-      src={`/api/photos?student_id=${student.id}`}
+      src={`/api/photos?student_id=${student.id}${version ? `&v=${version}` : ""}`}
       alt={`${student.full_name}'s photograph`}
-      width={34}
-      height={34}
+      width={160}
+      height={160}
       unoptimized
     />
   ) : (
@@ -56,7 +58,8 @@ export function BulkPhotos({
         <div className="notice">
           Name photographs using permanent admission numbers, for example
           1001.jpg. Review matches before uploading. JPEG, PNG and WebP, up to 5
-          MB each. Photos are optional.
+          MB each. Each photo is straightened, brightened and framed as a
+          formal portrait automatically. Photos are optional.
         </div>
         <ErrorNotice message={error} />
         <Field label="Choose multiple photos">

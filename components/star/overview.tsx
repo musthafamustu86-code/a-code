@@ -1,29 +1,13 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+
 import { ArrowUpRight, Star, Users, CalendarCheck } from "lucide-react";
 import type { WorkspaceData } from "./workspace";
 import { AnimatedNumber } from "./ui";
 import { LeaderboardStage } from "./leaderboard-stage";
 
-export function Dashboard({
-  data,
-  refresh,
-}: {
-  data: WorkspaceData;
-  refresh: () => Promise<void>;
-}) {
+export function Dashboard({ data }: { data: WorkspaceData }) {
   const overview = data.overview!;
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") {
-        void refresh();
-        setTick((value) => value + 1);
-      }
-    }, 12000);
-    return () => window.clearInterval(timer);
-  }, [refresh]);
   return (
     <>
       <div className="dayline">
@@ -78,7 +62,6 @@ export function Dashboard({
           eyebrow="INDIVIDUAL LEADERBOARD · CURRENT WEEK"
           href="/leaderboard"
           compact
-          tick={tick}
         />
         <section className="recent">
           <small className="kicker">RECOGNITION</small>

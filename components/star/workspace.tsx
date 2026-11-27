@@ -56,9 +56,11 @@ export interface WorkspaceData {
 export function Workspace({
   section,
   sheet,
+  student,
 }: {
   section: string;
   sheet?: { id: string };
+  student?: string;
 }) {
   const activities = useData<Activity[]>("all:table=activities", []),
     years = useData<Year[]>("all:table=academic_years", []),
@@ -83,10 +85,10 @@ export function Workspace({
   let body;
   switch (section) {
     case "/dashboard":
-      body = <Dashboard data={data} refresh={overview.reload} />;
+      body = <Dashboard data={data} />;
       break;
     case "/students":
-      body = <Students data={data} />;
+      body = <Students data={data} student={student} />;
       break;
     case "/take-attendance":
       body = sheet ? (
@@ -210,9 +212,20 @@ export function Workspace({
             <small className="kicker">{active.section}</small>
             <h1>{section === "/dashboard" ? "Academy overview" : active.name}</h1>
             <ErrorNotice message={failed} />
-            {data.overview
-              ? body
-              : !failed && <p role="status">Loading academy records…</p>}
+            {data.overview ? (
+              body
+            ) : failed ? null : (
+              <div
+                className="station-loading"
+                role="status"
+                aria-label="Loading academy records"
+                aria-busy="true"
+              >
+                <span />
+                <span />
+                <span />
+              </div>
+            )}
           </motion.div>
         </main>
       </div>

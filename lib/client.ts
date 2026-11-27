@@ -14,6 +14,14 @@ export function useWorkspaceConnected() {
 }
 
 const pending = new Map<string, Promise<unknown>>();
+// Data survives section switches so a remounted page can render immediately
+// while a background request refreshes it.
+const cache = new Map<string, unknown>();
+const fetchedAt = new Map<string, number>();
+const FRESH_MS = 15_000;
+export function invalidateData() {
+  for (const key of cache.keys()) fetchedAt.set(key, 0);
+}
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const dedupe = !options?.method && url.startsWith("/api/data?");
   if (dedupe && pending.has(url)) return pending.get(url) as Promise<T>;
@@ -40,6 +48,7 @@ export async function command(action: string, payload: object) {
     method: "POST",
     body: JSON.stringify({ action, payload }),
   });
+  invalidateData();
   window.dispatchEvent(new Event("star-refresh"));
   return data.result;
 }
@@ -49,7 +58,12 @@ export function useData<T>(requestedQuery: string | null, fallback: T) {
     key: string | null;
     data?: T;
     error?: string;
-  }>({ key: null });
+  }>(() => {
+    const cached = query ? cache.get(query) : undefined;
+    return cached === undefined
+      ? { key: null }
+      : { key: query, data: cached as T };
+  });
   const generation = useRef(0);
   const reload = useCallback(async () => {
     if (!query) return;
@@ -58,29 +72,42 @@ export function useData<T>(requestedQuery: string | null, fallback: T) {
       const data = (await (query.startsWith("all:")
         ? allPages(query.slice(4))
         : api<T>(`/api/data?${query}`))) as T;
-      if (current === generation.current) setResult({ key: query, data });
+      if (current === generation.current) {
+        cache.set(query, data);
+        fetchedAt.set(query, Date.now());
+        setResult({ key: query, data });
+      }
     } catch (e) {
-      if (current === generation.current)
-        setResult({
-          key: query,
-          error: e instanceof Error ? e.message : "Could not load records.",
-        });
+      if (current !== generation.current) return;
+      const cached = cache.get(query);
+      if (cached !== undefined) {
+        setResult({ key: query, data: cached as T });
+        return;
+      }
+      setResult({
+        key: query,
+        error: e instanceof Error ? e.message : "Could not load records.",
+      });
     }
   }, [query]);
   useEffect(() => {
     // A timer instead of requestAnimationFrame: rAF never fires in a hidden or
     // background tab, which left the workspace stuck on its loading state.
-    const timer = setTimeout(() => void reload(), 0);
+    const fresh =
+      !!query &&
+      cache.has(query) &&
+      Date.now() - (fetchedAt.get(query) ?? 0) < FRESH_MS;
+    const timer = fresh ? undefined : setTimeout(() => void reload(), 0);
     const invalidate = () => {
       generation.current++;
     };
     window.addEventListener("star-refresh", reload);
     return () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       invalidate();
       window.removeEventListener("star-refresh", reload);
     };
-  }, [reload]);
+  }, [query, reload]);
   return {
     data: result.key === query ? (result.data ?? fallback) : fallback,
     error: result.key === query ? result.error || "" : "",
